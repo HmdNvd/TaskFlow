@@ -4,16 +4,20 @@ require('dotenv').config();
 
 const pool = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
-
+const taskRoutes = require('./routes/taskRoutes');
+const userRoutes = require('./routes/userRoutes');
+const errorHandler = require('./middleware/errorMiddleware');
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// Mount API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/users', userRoutes);
 
-// Database connection check route
+// Health check
 app.get('/api/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -23,7 +27,10 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+app.use(errorHandler);
+
 const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
 });
