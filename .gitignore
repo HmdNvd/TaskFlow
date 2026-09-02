@@ -1,0 +1,15 @@
+# Ignore environment variables in all folders
+.env
+*.env
+.env.local
+# Server dependencies and environment variables
+server/node_modules/
+server/.env
+
+# Client dependencies (for later)
+client/node_modules/
+client/.env
+
+# OS/IDE files
+.DS_Store
+*.log

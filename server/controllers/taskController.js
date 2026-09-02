@@ -47,6 +47,7 @@ exports.getTasks = async (req, res) => {
   try {
     const userId = req.user.id;
     const role = req.user.role;
+    const { status, priority, search } = req.query;
 
     let query = `
       SELECT 
@@ -63,11 +64,25 @@ exports.getTasks = async (req, res) => {
 
     const params = [];
 
-    if (role === 'member') {
-      query += ` WHERE t.assigned_to = ? OR t.created_by = ?`;
+if (role === 'member') {
+      query += ` AND (t.assigned_to = ? OR t.created_by = ?)`;
       params.push(userId, userId);
     }
 
+    if (status) {
+      query += ` AND t.status = ?`;
+      params.push(status);
+    }
+
+    if (priority) {
+      query += ` AND t.priority = ?`;
+      params.push(priority);
+    }
+
+    if (search) {
+      query += ` AND (t.title LIKE ? OR t.description LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`);
+    }
     query += ` ORDER BY t.created_at DESC`;
 
     const [tasks] = await pool.execute(query, params);
