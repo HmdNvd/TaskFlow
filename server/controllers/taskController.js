@@ -1,9 +1,12 @@
 const pool = require('../config/db');
 
-// 1. GET /api/tasks/stats - Dashboard Metrics
-exports.getTaskStats = async (req, res) => {
+const VALID_STATUSES = ['todo', 'in_progress', 'completed'];
+const VALID_PRIORITIES = ['low', 'medium', 'high'];
+
+// 1. GET /api/tasks/stats
+exports.getTaskStats = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = Number(req.user.id);
     const role = req.user.role;
 
     let query = `
@@ -18,7 +21,6 @@ exports.getTaskStats = async (req, res) => {
 
     const params = [userId];
 
-    // If member, calculate stats only for tasks relevant to them
     if (role === 'member') {
       query += ` WHERE assigned_to = ? OR created_by = ?`;
       params.push(userId, userId);
@@ -37,15 +39,14 @@ exports.getTaskStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Task stats error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to retrieve task statistics.' });
+    next(error);
   }
 };
 
-// 2. GET /api/tasks - List tasks (Admin sees all; Member sees assigned or created)
-exports.getTasks = async (req, res) => {
+// 2. GET /api/tasks - (BUG-05 FIX: WHERE 1=1 prevents SQL syntax crash on Admin filters)
+exports.getTasks = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = Number(req.user.id);
     const role = req.user.role;
     const { status, priority, search } = req.query;
 
@@ -60,11 +61,12 @@ exports.getTasks = async (req, res) => {
       FROM tasks t
       LEFT JOIN users u_assigned ON t.assigned_to = u_assigned.id
       JOIN users u_created ON t.created_by = u_created.id
+      WHERE 1=1
     `;
 
     const params = [];
 
-if (role === 'member') {
+    if (role === 'member') {
       query += ` AND (t.assigned_to = ? OR t.created_by = ?)`;
       params.push(userId, userId);
     }
@@ -83,6 +85,7 @@ if (role === 'member') {
       query += ` AND (t.title LIKE ? OR t.description LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
+
     query += ` ORDER BY t.created_at DESC`;
 
     const [tasks] = await pool.execute(query, params);
@@ -92,16 +95,15 @@ if (role === 'member') {
       data: tasks
     });
   } catch (error) {
-    console.error('Fetch tasks error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to retrieve tasks.' });
+    next(error);
   }
 };
 
-// 3. GET /api/tasks/:id - Single Task by ID
-exports.getTaskById = async (req, res) => {
+// 3. GET /api/tasks/:id
+exports.getTaskById = async (req, res, next) => {
   try {
     const taskId = req.params.id;
-    const userId = req.user.id;
+    const userId = Number(req.user.id);
     const role = req.user.role;
 
     const [rows] = await pool.execute(
@@ -122,28 +124,46 @@ exports.getTaskById = async (req, res) => {
 
     const task = rows[0];
 
-    // RBAC: If member, must be assigned or creator
-    if (role === 'member' && task.assigned_to !== userId && task.created_by !== userId) {
+    // BUG-04 FIX: Type-safe comparison with Number()
+    if (
+      role === 'member' &&
+      Number(task.assigned_to) !== userId &&
+      Number(task.created_by) !== userId
+    ) {
       return res.status(403).json({ success: false, message: 'Access denied to this task.' });
     }
 
     return res.json({ success: true, data: task });
   } catch (error) {
-    console.error('Get task error:', error);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    next(error);
   }
 };
 
-// 4. POST /api/tasks - Create Task
-exports.createTask = async (req, res) => {
+// 4. POST /api/tasks
+exports.createTask = async (req, res, next) => {
   const { title, description, status, priority, assigned_to, due_date } = req.body;
 
   if (!title) {
     return res.status(400).json({ success: false, message: 'Title is required.' });
   }
 
+  // BUG-09 FIX: Validate enum inputs with 400 Bad Request
+  if (status && !VALID_STATUSES.includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid status value. Allowed: ${VALID_STATUSES.join(', ')}`
+    });
+  }
+
+  if (priority && !VALID_PRIORITIES.includes(priority)) {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid priority value. Allowed: ${VALID_PRIORITIES.join(', ')}`
+    });
+  }
+
   try {
-    const createdBy = req.user.id;
+    const createdBy = Number(req.user.id);
     const taskStatus = status || 'todo';
     const taskPriority = priority || 'medium';
     const assignedTo = assigned_to || null;
@@ -165,20 +185,32 @@ exports.createTask = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Create task error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to create task.' });
+    next(error);
   }
 };
 
-// 5. PATCH /api/tasks/:id - Update Task (Role-Enforced)
-exports.updateTask = async (req, res) => {
+// 5. PATCH /api/tasks/:id
+exports.updateTask = async (req, res, next) => {
   const taskId = req.params.id;
-  const userId = req.user.id;
+  const userId = Number(req.user.id);
   const role = req.user.role;
   const { title, description, status, priority, assigned_to, due_date } = req.body;
 
+  // Validate enums if provided
+  if (status && !VALID_STATUSES.includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid status value. Allowed: ${VALID_STATUSES.join(', ')}`
+    });
+  }
+  if (priority && !VALID_PRIORITIES.includes(priority)) {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid priority value. Allowed: ${VALID_PRIORITIES.join(', ')}`
+    });
+  }
+
   try {
-    // Check if task exists
     const [tasks] = await pool.execute('SELECT * FROM tasks WHERE id = ?', [taskId]);
     if (tasks.length === 0) {
       return res.status(404).json({ success: false, message: 'Task not found.' });
@@ -186,14 +218,20 @@ exports.updateTask = async (req, res) => {
 
     const task = tasks[0];
 
-    // RBAC: Members can only update status of tasks assigned to or created by them
+    // BUG-04 FIX: Type-safe comparison
     if (role === 'member') {
-      if (task.assigned_to !== userId && task.created_by !== userId) {
+      if (Number(task.assigned_to) !== userId && Number(task.created_by) !== userId) {
         return res.status(403).json({ success: false, message: 'Forbidden: You cannot modify this task.' });
       }
 
-      // If a member attempts to reassign or change priority/title, reject or ignore
-      if (title || description || priority || assigned_to || due_date) {
+      // BUG-03 FIX: Strict check for undefined instead of truthy
+      if (
+        title !== undefined ||
+        description !== undefined ||
+        priority !== undefined ||
+        assigned_to !== undefined ||
+        due_date !== undefined
+      ) {
         return res.status(403).json({ 
           success: false, 
           message: 'Members are only permitted to update task status.' 
@@ -201,7 +239,6 @@ exports.updateTask = async (req, res) => {
       }
     }
 
-    // Prepare update parameters
     const updatedTitle = title !== undefined ? title : task.title;
     const updatedDesc = description !== undefined ? description : task.description;
     const updatedStatus = status !== undefined ? status : task.status;
@@ -216,18 +253,20 @@ exports.updateTask = async (req, res) => {
       [updatedTitle, updatedDesc, updatedStatus, updatedPriority, updatedAssigned, updatedDueDate, taskId]
     );
 
+    // BUG-10 FIX: Return the freshly updated record in `data`
+    const [updatedRows] = await pool.execute('SELECT * FROM tasks WHERE id = ?', [taskId]);
+
     return res.json({
       success: true,
-      message: 'Task updated successfully.'
+      data: updatedRows[0]
     });
   } catch (error) {
-    console.error('Update task error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to update task.' });
+    next(error);
   }
 };
 
-// 6. DELETE /api/tasks/:id - Admin Only
-exports.deleteTask = async (req, res) => {
+// 6. DELETE /api/tasks/:id
+exports.deleteTask = async (req, res, next) => {
   const taskId = req.params.id;
 
   try {
@@ -237,12 +276,12 @@ exports.deleteTask = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Task not found.' });
     }
 
+    // BUG-11 FIX: Consistent contract returning { success: true, data: { id } }
     return res.json({
       success: true,
-      message: 'Task deleted successfully.'
+      data: { id: Number(taskId) }
     });
   } catch (error) {
-    console.error('Delete task error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to delete task.' });
+    next(error);
   }
 };
