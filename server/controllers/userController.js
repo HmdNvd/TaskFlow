@@ -158,3 +158,25 @@ exports.deleteUser = async (req, res, next) => {
     next(error);
   }
 };
+// GET /api/users/:id
+exports.getUserById = async (req, res, next) => {
+  const targetUserId = Number(req.params.id);
+  if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+    return res.status(400).json({ success: false, message: 'Invalid user ID.' });
+  }
+
+  try {
+    const [users] = await pool.execute(
+      'SELECT id, name, email, role, created_at FROM users WHERE id = ?',
+      [targetUserId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    return res.json({ success: true, data: users[0] });
+  } catch (error) {
+    next(error);
+  }
+};
