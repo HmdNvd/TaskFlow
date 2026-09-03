@@ -25,7 +25,7 @@ import {
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { DashboardSkeleton } from '@/components/common/skeletons'
-import { fetchTasks, getTasksErrorMessage } from '@/services/tasks'
+import { fetchTasks, getTasksErrorMessage, deleteTask } from '@/services/tasks'
 import type { Task } from '@/types'
 
 export const DashboardPage: React.FC = () => {
@@ -85,10 +85,18 @@ export const DashboardPage: React.FC = () => {
       String(t.assigned_to.id) === String(user.id)
   )
 
-  const handleDeleteConfirmed = () => {
-    if (taskToDelete) {
+  const handleDeleteConfirmed = async () => {
+    if (!taskToDelete) {
+      return
+    }
+
+    try {
+      await deleteTask(taskToDelete.id)
+
       setTasks((prev) => prev.filter((t) => t.id !== taskToDelete.id))
       setTaskToDelete(null)
+    } catch (error) {
+      console.error('Failed to delete task:', error)
     }
   }
 
