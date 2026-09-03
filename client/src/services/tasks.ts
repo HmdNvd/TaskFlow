@@ -209,3 +209,34 @@ export async function deleteTask(taskId: number) {
 
   return response.data
 }
+
+export async function fetchTaskById(
+  taskId: number | string,
+  signal?: AbortSignal,
+): Promise<Task> {
+  const response = await api.get<unknown>(`/tasks/${taskId}`, { signal })
+  const data = asRecord(response.data)
+  const rawTask = data ? data.data : null
+  const task = mapTask(rawTask)
+  if (!task) {
+    throw new Error('Task not found or invalid format')
+  }
+  return task
+}
+
+export interface UpdateTaskPayload {
+  title?: string
+  description?: string
+  status?: TaskStatus
+  priority?: TaskPriority
+  assigned_to?: number | null
+  due_date?: string | null
+}
+
+export async function updateTask(
+  taskId: number | string,
+  payload: UpdateTaskPayload,
+) {
+  const response = await api.patch(`/tasks/${taskId}`, payload)
+  return response.data
+}

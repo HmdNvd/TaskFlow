@@ -38,13 +38,13 @@ export const tasksApi = {
     api.get('/tasks', { params }),
   getById: (id: number | string) => api.get(`/tasks/${id}`),
   create: (data: Partial<Task>) => api.post('/tasks', data),
-  update: (id: number | string, data: Partial<Task>) => api.put(`/tasks/${id}`, data),
+  update: (id: number | string, data: Partial<Task>) => api.patch(`/tasks/${id}`, data),
   delete: (id: number | string) => api.delete(`/tasks/${id}`),
 }
 
 export const usersApi = {
-  getAll: () => api.get<User[]>('/users'),
-  getById: (id: string) => api.get<User>(`/users/${id}`),
+  getAll: () => api.get<{ success: boolean; data: User[] }>('/users'),
+  getById: (id: string) => api.get<{ success: boolean; data: User }>(`/users/${id}`),
 }
 
 export default api

@@ -1,59 +1,118 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TaskForm } from '@/components/common/TaskForm'
-import { INITIAL_MOCK_TASKS, MOCK_CURRENT_USER, MOCK_ADMIN_USER } from '@/data/mockData'
+import { ErrorState } from '@/components/common/ErrorState'
+import { TaskDetailSkeleton } from '@/components/common/skeletons'
+import { fetchTaskById, updateTask, getTasksErrorMessage, type UpdateTaskPayload } from '@/services/tasks'
 import type { Task } from '@/types'
 
 export const TaskEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [task, setTask] = useState<Task | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Retrieve initial task data from mock data
-  const existingTask = useMemo<Task>(() => {
-    const found = INITIAL_MOCK_TASKS.find((t) => String(t.id) === id)
-    if (found) return found
+  useEffect(() => {
+    if (!id) return
 
-    // Fallback if custom ID is entered in URL
-    return {
-      id: Number(id) || 1,
-      title: 'Design landing page layout and assets',
-      description: 'Create responsive high-fidelity UI mockups, collect wireframes, and design navigation elements for the core portal.',
-      status: 'in_progress',
-      priority: 'high',
-      assigned_to: {
-        id: Number(String(MOCK_CURRENT_USER.id).replace(/\D/g, '')) || 2,
-        name: MOCK_CURRENT_USER.name,
-        email: MOCK_CURRENT_USER.email,
-      },
-      created_by: {
-        id: Number(String(MOCK_ADMIN_USER.id).replace(/\D/g, '')) || 1,
-        name: MOCK_ADMIN_USER.name,
-        email: MOCK_ADMIN_USER.email,
-      },
-      due_date: '2026-03-15',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    let isMounted = true
+    setIsLoading(true)
+    setError(null)
+
+    fetchTaskById(id)
+      .then((data) => {
+        if (isMounted) {
+          setTask(data)
+          setIsLoading(false)
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          setError(getTasksErrorMessage(err))
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
     }
   }, [id])
 
-  const handleUpdateTask = (_formData: Partial<Task>) => {
-    setIsSubmitting(true)
-    setTimeout(() => {
-      setIsSubmitting(false)
+  const handleUpdateTask = async (formData: Partial<Task>) => {
+    if (!id) return
+
+    try {
+      setIsSubmitting(true)
+
+      const payload: UpdateTaskPayload = {
+        title: formData.title,
+        description: formData.description,
+        status: formData.status,
+        priority: formData.priority,
+        assigned_to: formData.assigned_to !== undefined
+          ? (formData.assigned_to ? formData.assigned_to.id : null)
+          : undefined,
+        due_date: formData.due_date,
+      }
+
+      await updateTask(id, payload)
       navigate('/tasks')
-    }, 600)
+    } catch (err) {
+      console.error('Failed to update task:', err)
+      setError(getTasksErrorMessage(err))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl mx-auto py-8">
+        <TaskDetailSkeleton />
+      </div>
+    )
+  }
+
+  if (error && !task) {
+    return (
+      <div className="max-w-3xl mx-auto py-8">
+        <ErrorState
+          title="Unable to load task"
+          message={error}
+          onRetry={() => {
+            if (id) {
+              setIsLoading(true)
+              setError(null)
+              fetchTaskById(id)
+                .then((data) => {
+                  setTask(data)
+                  setIsLoading(false)
+                })
+                .catch((err) => {
+                  setError(getTasksErrorMessage(err))
+                  setIsLoading(false)
+                })
+            }
+          }}
+        />
+      </div>
+    )
   }
 
   return (
     <div className="max-w-3xl mx-auto py-4">
-      <TaskForm
-        initialData={existingTask}
-        isEdit={true}
-        onSubmit={handleUpdateTask}
-        onCancel={() => navigate('/tasks')}
-        isSubmitting={isSubmitting}
-      />
+      {task && (
+        <TaskForm
+          key={task.id}
+          initialData={task}
+          isEdit={true}
+          onSubmit={handleUpdateTask}
+          onCancel={() => navigate('/tasks')}
+          isSubmitting={isSubmitting}
+        />
+      )}
     </div>
   )
 }
