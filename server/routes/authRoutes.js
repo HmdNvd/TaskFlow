@@ -17,7 +17,7 @@ const loginLimiter = rateLimit({
 
 // Public route: Login
 router.post('/login', loginLimiter, authController.login);
-
+router.post('/register', loginLimiter, authController.register);
 // Protected route: Current user session
 router.get('/me', authenticateToken, authController.getMe);
 

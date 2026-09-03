@@ -82,3 +82,78 @@ exports.getMe = async (req, res, next) => {
     next(error); // FIX: Delegates to central errorMiddleware
   }
 };
+// POST /api/auth/register - Public self-service registration
+exports.register = async (req, res, next) => {
+  const { name, email, password } = req.body || {};
+
+  // 1. Presence check
+  if (!name || !email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name, email, and password are required.'
+    });
+  }
+
+  // 2. Email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const cleanEmail = email.trim().toLowerCase();
+  if (!emailRegex.test(cleanEmail)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid email format.'
+    });
+  }
+
+  // 3. Password length validation
+  if (password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must be at least 6 characters long.'
+    });
+  }
+
+  try {
+    // 4. Duplicate email check
+    const [existing] = await pool.execute('SELECT id FROM users WHERE email = ?', [cleanEmail]);
+    if (existing.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email already exists.'
+      });
+    }
+
+    // 5. Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // 6. Persist user - HARDCODED to 'member' for security
+    const [result] = await pool.execute(
+      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+      [name.trim(), cleanEmail, hashedPassword, 'member']
+    );
+
+    const newUserId = result.insertId;
+
+    // 7. Generate JWT immediately so user is logged in upon registration
+    const token = jwt.sign(
+      { id: newUserId, email: cleanEmail, role: 'member' },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
+    );
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: newUserId,
+          name: name.trim(),
+          email: cleanEmail,
+          role: 'member'
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

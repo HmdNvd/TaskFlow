@@ -9,7 +9,7 @@ router.use(authenticateToken);
 
 // Accessible by both Admin & Member (for assignee dropdowns)
 router.get('/', userController.getUsers);
-
+router.get('/:id', userController.getUserById);
 // Strictly Admin-Only operations
 router.post('/', authorizeRoles('admin'), userController.createUser);
 router.delete('/:id',  authorizeRoles('admin'), userController.deleteUser);
