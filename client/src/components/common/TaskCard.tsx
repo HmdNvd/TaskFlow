@@ -9,6 +9,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { TaskStatusBadge } from '@/components/common/TaskStatusBadge'
 import { TaskPriorityBadge } from '@/components/common/TaskPriorityBadge'
+import { useAuth } from '@/context/AuthContext'
 import type { Task } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +26,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onDelete,
   className,
 }) => {
+  const { isAdmin } = useAuth()
+  const canDelete = isAdmin && !!onDelete
+
   return (
     <Card
       className={cn(
@@ -99,9 +103,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <Edit2 className="h-3.5 w-3.5" />
             </Link>
 
-            {onDelete && (
+            {canDelete && (
               <button
-                onClick={() => onDelete(task)}
+                onClick={() => onDelete?.(task)}
                 className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                 title="Delete Task"
               >

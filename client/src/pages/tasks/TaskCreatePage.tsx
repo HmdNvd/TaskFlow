@@ -17,8 +17,10 @@ export const TaskCreatePage: React.FC = () => {
         description: formData.description || '',
         status: formData.status || 'todo',
         priority: formData.priority || 'medium',
-        assigned_to: formData.assigned_to?.id ?? null,
         due_date: formData.due_date ?? null,
+        ...(formData.assigned_to !== undefined
+          ? { assigned_to: formData.assigned_to ? formData.assigned_to.id : null }
+          : {}),
       })
 
       navigate('/tasks')

@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { TaskListSkeleton } from '@/components/common/skeletons'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAuth } from '@/context/AuthContext'
 import {
   fetchTasks,
   getTasksErrorMessage,
@@ -34,6 +35,7 @@ import {
 import type { Task } from '@/types'
 
 export const TasksListPage: React.FC = () => {
+  const { isAdmin } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const taskIdParam = searchParams.get('taskId')
@@ -282,7 +284,7 @@ export const TasksListPage: React.FC = () => {
               key={task.id}
               task={task}
               onView={(t) => setSelectedTask(t)}
-              onDelete={(t) => setTaskToDelete(t)}
+              onDelete={isAdmin ? (t) => setTaskToDelete(t) : undefined}
             />
           ))}
         </div>
@@ -290,7 +292,7 @@ export const TasksListPage: React.FC = () => {
         <TaskTable
           tasks={filteredTasks}
           onView={(t) => setSelectedTask(t)}
-          onDelete={(t) => setTaskToDelete(t)}
+          onDelete={isAdmin ? (t) => setTaskToDelete(t) : undefined}
         />
       )}
 
@@ -299,10 +301,10 @@ export const TasksListPage: React.FC = () => {
         task={selectedTask}
         open={!!selectedTask}
         onClose={handleCloseModal}
-        onDelete={(t) => {
+        onDelete={isAdmin ? (t) => {
           handleCloseModal()
           setTaskToDelete(t)
-        }}
+        } : undefined}
       />
 
       {/* Delete Task Confirmation Dialog */}

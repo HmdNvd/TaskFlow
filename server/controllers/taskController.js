@@ -162,6 +162,13 @@ exports.createTask = async (req, res, next) => {
     });
   }
 
+  if (req.user.role === 'member' && assigned_to !== undefined) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Members are not permitted to assign tasks.'
+    });
+  }
+
   try {
     const createdBy = Number(req.user.id);
     const taskStatus = status || 'todo';

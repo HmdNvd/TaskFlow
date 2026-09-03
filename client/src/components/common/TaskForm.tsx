@@ -36,6 +36,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 }) => {
   const { isAdmin } = useAuth()
   const isMemberEditing = isEdit && !isAdmin
+  const canAssign = isAdmin
 
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
@@ -52,8 +53,12 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submittedSuccess, setSubmittedSuccess] = useState(false)
 
-  // Fetch real users from API for assignee dropdown
+  // Fetch users for assignee dropdown (Admin only; GET /api/users is admin-only)
   useEffect(() => {
+    if (!canAssign) {
+      return
+    }
+
     let isMounted = true
     usersApi
       .getAll()
@@ -73,7 +78,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [canAssign])
 
   // Synchronize formData when initialData changes
   useEffect(() => {
@@ -127,21 +132,23 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       return
     }
 
-    const selectedAssignee = users.find((u) => String(u.id) === formData.assigned_to_id) || null
-
     const taskPayload: Partial<Task> = {
       title: formData.title.trim(),
       description: formData.description.trim(),
       status: formData.status,
       priority: formData.priority,
-      assigned_to: selectedAssignee
+      due_date: formData.due_date || null,
+    }
+
+    if (canAssign) {
+      const selectedAssignee = users.find((u) => String(u.id) === formData.assigned_to_id) || null
+      taskPayload.assigned_to = selectedAssignee
         ? {
             id: Number(selectedAssignee.id),
             name: selectedAssignee.name,
             email: selectedAssignee.email,
           }
-        : null,
-      due_date: formData.due_date || null,
+        : null
     }
 
     setSubmittedSuccess(true)
@@ -271,8 +278,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             </div>
           </div>
 
-          {/* Assignee & Due Date Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Assignee (Admin only) & Due Date Row */}
+          <div className={`grid grid-cols-1 gap-4 ${canAssign ? 'sm:grid-cols-2' : ''}`}>
+            {canAssign && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
                 Assignee
@@ -291,6 +299,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                 ))}
               </select>
             </div>
+            )}
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-foreground">

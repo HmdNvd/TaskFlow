@@ -192,7 +192,7 @@ export interface CreateTaskPayload {
   description: string
   status: TaskStatus
   priority: TaskPriority
-  assigned_to: number | null
+  assigned_to?: number | null
   due_date: string | null
 }
 

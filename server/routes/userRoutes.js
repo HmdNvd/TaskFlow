@@ -7,8 +7,7 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 // All user routes require a valid JWT
 router.use(authenticateToken);
 
-// Accessible by both Admin & Member (for assignee dropdowns)
-router.get('/', userController.getUsers);
+router.get('/', authorizeRoles('admin'), userController.getUsers);
 
 // Strictly Admin-Only operations
 router.post('/', authorizeRoles('admin'), userController.createUser);

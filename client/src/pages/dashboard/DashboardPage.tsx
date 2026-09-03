@@ -29,7 +29,7 @@ import { fetchTasks, getTasksErrorMessage, deleteTask } from '@/services/tasks'
 import type { Task } from '@/types'
 
 export const DashboardPage: React.FC = () => {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
@@ -204,7 +204,7 @@ export const DashboardPage: React.FC = () => {
                     key={task.id}
                     task={task}
                     onView={(t) => setSelectedTask(t)}
-                    onDelete={(t) => setTaskToDelete(t)}
+                    onDelete={isAdmin ? (t) => setTaskToDelete(t) : undefined}
                   />
                 ))}
               </div>
@@ -245,7 +245,7 @@ export const DashboardPage: React.FC = () => {
                     key={task.id}
                     task={task}
                     onView={(t) => setSelectedTask(t)}
-                    onDelete={(t) => setTaskToDelete(t)}
+                    onDelete={isAdmin ? (t) => setTaskToDelete(t) : undefined}
                   />
                 ))}
               </div>
@@ -259,10 +259,10 @@ export const DashboardPage: React.FC = () => {
         task={selectedTask}
         open={!!selectedTask}
         onClose={() => setSelectedTask(null)}
-        onDelete={(t) => {
+        onDelete={isAdmin ? (t) => {
           setSelectedTask(null)
           setTaskToDelete(t)
-        }}
+        } : undefined}
       />
 
       {/* Delete Task Confirmation Dialog */}

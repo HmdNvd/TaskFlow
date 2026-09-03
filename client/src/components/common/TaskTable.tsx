@@ -10,13 +10,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { TaskStatusBadge } from '@/components/common/TaskStatusBadge'
 import { TaskPriorityBadge } from '@/components/common/TaskPriorityBadge'
+import { useAuth } from '@/context/AuthContext'
 import type { Task } from '@/types'
 import { cn } from '@/lib/utils'
 
 interface TaskTableProps {
   tasks: Task[]
   onView: (task: Task) => void
-  onDelete: (task: Task) => void
+  onDelete?: (task: Task) => void
   className?: string
 }
 
@@ -26,6 +27,8 @@ export const TaskTable: React.FC<TaskTableProps> = ({
   onDelete,
   className,
 }) => {
+  const { isAdmin } = useAuth()
+  const canDelete = isAdmin && !!onDelete
   return (
     <div className={cn('overflow-x-auto rounded-2xl border border-border bg-card shadow-xs', className)}>
       <table className="w-full text-left text-sm">
@@ -141,15 +144,17 @@ export const TaskTable: React.FC<TaskTableProps> = ({
                     </Link>
                   </Button>
 
+                  {canDelete && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onDelete(task)}
+                    onClick={() => onDelete?.(task)}
                     className="h-8 w-8 p-0 text-destructive/80 hover:text-destructive hover:bg-destructive/10"
                     title="Delete task"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
+                  )}
                 </div>
               </td>
             </tr>
