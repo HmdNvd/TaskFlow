@@ -122,10 +122,39 @@ function extractTasks(payload: unknown): Task[] {
     .filter((task): task is Task => task !== null)
 }
 
+export interface FetchTasksParams {
+  search?: string
+  status?: string
+  priority?: string
+}
+
 export async function fetchTasks(
+  signalOrParams?: AbortSignal | FetchTasksParams,
+  maybeSignal?: AbortSignal,
+): Promise<Task[]> {
+  let params: FetchTasksParams | undefined
+  let signal: AbortSignal | undefined
+
+  if (signalOrParams instanceof AbortSignal) {
+    signal = signalOrParams
+  } else if (signalOrParams) {
+    params = signalOrParams
+    signal = maybeSignal
+  }
+
+  const response = await api.get<unknown>('/tasks', { signal, params })
+
+  return extractTasks(response.data)
+}
+
+export async function searchTasks(
+  query: string,
   signal?: AbortSignal,
 ): Promise<Task[]> {
-  const response = await api.get<unknown>('/tasks', { signal })
+  const response = await api.get<unknown>('/tasks', {
+    params: { search: query },
+    signal,
+  })
 
   return extractTasks(response.data)
 }

@@ -82,8 +82,8 @@ exports.getTasks = async (req, res, next) => {
     }
 
     if (search) {
-      query += ` AND (t.title LIKE ? OR t.description LIKE ?)`;
-      params.push(`%${search}%`, `%${search}%`);
+      query += ` AND (t.title LIKE ? OR t.description LIKE ? OR u_assigned.name LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     query += ` ORDER BY t.created_at DESC`;

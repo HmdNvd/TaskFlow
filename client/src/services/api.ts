@@ -34,7 +34,7 @@ api.interceptors.response.use(
 )
 
 export const tasksApi = {
-  getAll: (params?: { status?: string; priority?: string; assigned_to?: string }) =>
+  getAll: (params?: { status?: string; priority?: string; assigned_to?: string; search?: string }) =>
     api.get('/tasks', { params }),
   getById: (id: number | string) => api.get(`/tasks/${id}`),
   create: (data: Partial<Task>) => api.post('/tasks', data),
