@@ -32,7 +32,13 @@ export const TaskCreatePage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto py-4">
+    <div className="max-w-2xl mx-auto space-y-1 pb-10">
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">New Task</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Fill in the details below to add a task to TaskFlow.
+        </p>
+      </div>
       <TaskForm
         isEdit={false}
         onSubmit={handleCreateTask}

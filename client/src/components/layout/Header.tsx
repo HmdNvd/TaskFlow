@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { TaskStatusBadge } from '@/components/common/TaskStatusBadge'
+import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { searchTasks, getTasksErrorMessage } from '@/services/tasks'
 import type { Task } from '@/types'
 
@@ -268,8 +269,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
         </div>
       </div>
 
-      {/* Right Section: Notifications + User profile pill */}
+      {/* Right Section: Theme toggle + Notifications + User profile pill */}
       <div className="flex items-center gap-3 sm:gap-4">
+        {/* Theme Toggle */}
+        <ThemeToggle />
+
         {/* Notification Bell */}
         <button
           className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-muted/20 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"

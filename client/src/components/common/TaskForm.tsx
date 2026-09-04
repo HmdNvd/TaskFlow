@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import {
   Save,
   ArrowLeft,
-  Sparkles,
+  ClipboardList,
   CheckCircle2,
   Loader2,
   Info,
@@ -10,6 +10,8 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Select } from '@/components/ui/select'
 import { useAuth } from '@/context/AuthContext'
 import { usersApi } from '@/services/api'
 import type { Task, TaskPriority, TaskStatus, User } from '@/types'
@@ -156,18 +158,18 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   }
 
   return (
-    <Card className="shadow-lg border-border/80 rounded-2xl">
-      <CardHeader className="border-b border-border/50 pb-5">
-        <div className="flex items-center justify-between">
+    <Card className="border-border/80 rounded-xl shadow-sm">
+      <CardHeader className="border-b border-border/60 py-5">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Sparkles className="h-5 w-5" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground/80">
+              <ClipboardList className="h-4 w-4" />
             </div>
             <div>
-              <CardTitle className="text-xl font-bold">
+              <CardTitle className="text-base font-semibold">
                 {isEdit ? 'Edit Task' : 'Create Task'}
               </CardTitle>
-              <CardDescription className="text-xs">
+              <CardDescription className="text-xs mt-0.5">
                 {isEdit
                   ? isMemberEditing
                     ? `Update status for task #${initialData?.id || ''}.`
@@ -178,7 +180,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           </div>
 
           {isEdit && initialData?.id && (
-            <span className="font-mono text-xs font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-md">
+            <span className="shrink-0 font-mono text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-1 rounded-md">
               #{initialData.id}
             </span>
           )}
@@ -186,10 +188,10 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       </CardHeader>
 
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-6 pt-6">
+        <CardContent className="space-y-5 pt-6">
           {/* Member notification banner */}
           {isMemberEditing && (
-            <div className="flex items-center gap-2 rounded-xl bg-primary/5 p-3 text-xs text-primary border border-primary/20">
+            <div className="flex items-center gap-2.5 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground border border-border/70">
               <Info className="h-4 w-4 shrink-0" />
               <span>You are viewing this task as a Member. Members are permitted to update task status.</span>
             </div>
@@ -197,7 +199,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
           {/* Title */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            <label className="text-xs font-medium text-foreground">
               Task Title <span className="text-destructive">*</span>
             </label>
             <Input
@@ -208,7 +210,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                 setFormData({ ...formData, title: e.target.value })
                 if (errors.title) setErrors({ ...errors, title: '' })
               }}
-              className={`${errors.title ? 'border-destructive focus-visible:ring-destructive' : ''} disabled:opacity-60 disabled:cursor-not-allowed`}
+              className={errors.title ? 'border-destructive focus-visible:ring-destructive' : ''}
             />
             {errors.title && (
               <p className="text-xs font-medium text-destructive mt-1">{errors.title}</p>
@@ -217,17 +219,13 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
           {/* Description */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            <label className="text-xs font-medium text-foreground">
               Description <span className="text-destructive">*</span>
             </label>
-            <textarea
+            <Textarea
               rows={4}
               disabled={isMemberEditing}
-              className={`w-full rounded-md border bg-background p-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed ${
-                errors.description
-                  ? 'border-destructive focus-visible:ring-destructive'
-                  : 'border-input'
-              }`}
+              className={errors.description ? 'border-destructive focus-visible:ring-destructive' : ''}
               placeholder="Describe requirements, acceptance criteria, and deliverable scope..."
               value={formData.description}
               onChange={(e) => {
@@ -243,38 +241,36 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           {/* Status & Priority Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
+              <label className="text-xs font-medium text-foreground">
                 Status <span className="text-destructive">*</span>
               </label>
-              <select
+              <Select
                 value={formData.status}
                 onChange={(e) =>
                   setFormData({ ...formData, status: e.target.value as TaskStatus })
                 }
-                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="todo">To Do</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
-              </select>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
+              <label className="text-xs font-medium text-foreground">
                 Priority <span className="text-destructive">*</span>
               </label>
-              <select
+              <Select
                 value={formData.priority}
                 disabled={isMemberEditing}
                 onChange={(e) =>
                   setFormData({ ...formData, priority: e.target.value as TaskPriority })
                 }
-                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -282,14 +278,13 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           <div className={`grid grid-cols-1 gap-4 ${canAssign ? 'sm:grid-cols-2' : ''}`}>
             {canAssign && (
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
+              <label className="text-xs font-medium text-foreground">
                 Assignee
               </label>
-              <select
+              <Select
                 value={formData.assigned_to_id}
                 disabled={isMemberEditing}
                 onChange={(e) => setFormData({ ...formData, assigned_to_id: e.target.value })}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="">Unassigned</option>
                 {users.map((user) => (
@@ -297,12 +292,12 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                     {user.name} ({user.role})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
+              <label className="text-xs font-medium text-foreground">
                 Due Date <span className="text-destructive">*</span>
               </label>
               <Input
@@ -313,7 +308,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                   setFormData({ ...formData, due_date: e.target.value })
                   if (errors.due_date) setErrors({ ...errors, due_date: '' })
                 }}
-                className={`${errors.due_date ? 'border-destructive focus-visible:ring-destructive' : ''} disabled:opacity-60 disabled:cursor-not-allowed`}
+                className={errors.due_date ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
               {errors.due_date && (
                 <p className="text-xs font-medium text-destructive mt-1">{errors.due_date}</p>
@@ -322,14 +317,14 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           </div>
 
           {submittedSuccess && (
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-emerald-800 text-xs font-medium dark:bg-emerald-950/50 dark:text-emerald-300">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-emerald-800 text-xs font-medium dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/60">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span>Task saved successfully! Redirecting...</span>
             </div>
           )}
         </CardContent>
 
-        <CardFooter className="flex items-center justify-between border-t border-border/50 pt-5">
+        <CardFooter className="flex items-center justify-between border-t border-border/60 py-5">
           <Button
             type="button"
             variant="ghost"
@@ -341,7 +336,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             <span>Cancel</span>
           </Button>
 
-          <Button type="submit" disabled={isSubmitting || submittedSuccess} className="gap-2 shadow-sm">
+          <Button type="submit" disabled={isSubmitting || submittedSuccess} className="gap-2">
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (

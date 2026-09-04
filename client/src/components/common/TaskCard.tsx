@@ -32,7 +32,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <Card
       className={cn(
-        'group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-5 transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg',
+        'group relative overflow-hidden rounded-xl border border-border/70 bg-card p-5 transition-all duration-150 hover:border-foreground/20 hover:shadow-md',
         className
       )}
     >

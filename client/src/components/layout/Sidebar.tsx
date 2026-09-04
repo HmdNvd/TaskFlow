@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -87,22 +86,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       className={cn(
-        'flex h-full w-64 flex-col border-r border-border/80 bg-card/95 text-card-foreground shadow-2xs backdrop-blur-md',
+        'flex h-full w-64 flex-col border-r border-border/70 bg-card text-card-foreground',
         className
       )}
     >
       {/* Brand & Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-border/60 px-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-indigo-600 text-white shadow-md shadow-primary/20 ring-4 ring-primary/10">
-          <Layers className="h-5 w-5" />
+      <div className="flex h-16 shrink-0 items-center gap-2.5 border-b border-border/60 px-5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
+          <Layers className="h-4 w-4" />
         </div>
 
-        <div className="flex flex-col">
-          <span className="font-extrabold text-base tracking-tight text-foreground font-sans">
+        <div className="flex flex-col leading-none">
+          <span className="font-semibold text-sm tracking-tight text-foreground">
             TaskFlow
           </span>
 
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+          <span className="mt-1 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
             Internal Operations
           </span>
         </div>
@@ -112,13 +111,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 overflow-y-auto px-3 py-5 space-y-6">
         {/* Main Section */}
         <div>
-          <div className="px-3 mb-2 flex items-center justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+          <div className="px-3 mb-2">
+            <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
               Navigation
             </span>
           </div>
 
-          <nav className="space-y-1">
+          <nav className="space-y-0.5">
             {visibleNavItems.map((item) => {
               const Icon = item.icon
 
@@ -142,27 +141,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   end
                   onClick={onCloseMobile}
                   className={cn(
-                    'group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-150',
+                    'group relative flex items-center justify-between rounded-lg px-3 py-2 text-[13px] transition-colors duration-150',
                     isItemActive
-                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20 font-bold'
-                      : 'text-muted-foreground hover:bg-accent/80 hover:text-foreground'
+                      ? 'bg-accent text-foreground font-medium'
+                      : 'text-muted-foreground font-normal hover:bg-accent/50 hover:text-foreground'
                   )}
                 >
-                  <div className="flex items-center gap-3">
+                  {/* Subtle left accent indicator for the active item */}
+                  <span
+                    className={cn(
+                      'absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary transition-opacity',
+                      isItemActive ? 'opacity-100' : 'opacity-0'
+                    )}
+                  />
+
+                  <div className="flex items-center gap-2.5">
                     <Icon
                       className={cn(
-                        'h-4 w-4 shrink-0 transition-transform group-hover:scale-110',
+                        'h-4 w-4 shrink-0',
                         isItemActive
-                          ? 'text-primary-foreground'
-                          : 'text-muted-foreground group-hover:text-foreground'
+                          ? 'text-primary'
+                          : 'text-muted-foreground/80 group-hover:text-foreground'
                       )}
                     />
 
                     <span>{item.label}</span>
                   </div>
 
-                  {item.badge && !isItemActive && (
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                  {item.badge && (
+                    <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border border-border/70 text-muted-foreground/80">
                       {item.badge}
                     </span>
                   )}
@@ -175,28 +182,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Quick Views */}
         <div>
           <div className="px-3 mb-2">
-            <span className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
               Quick Views
             </span>
           </div>
 
-          <div className="space-y-1 text-xs font-medium">
+          <div className="space-y-0.5 text-[13px]">
             <NavLink
               to="/dashboard#my-tasks"
               onClick={handleAssignedToMeClick}
               className={cn(
-                'flex items-center gap-3 rounded-xl px-3.5 py-2 transition-colors',
+                'relative flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors',
                 isAssignedToMeActive
-                  ? 'bg-primary text-primary-foreground font-bold'
-                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                  ? 'bg-accent text-foreground font-medium'
+                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
               )}
             >
+              <span
+                className={cn(
+                  'absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary transition-opacity',
+                  isAssignedToMeActive ? 'opacity-100' : 'opacity-0'
+                )}
+              />
               <UserCheck
                 className={cn(
                   'h-4 w-4',
-                  isAssignedToMeActive
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
+                  isAssignedToMeActive ? 'text-primary' : 'text-muted-foreground/80'
                 )}
               />
 
@@ -208,30 +219,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* User Info & Footer */}
       {user && (
-        <div className="border-t border-border/60 p-3 bg-muted/10">
-          <div className="flex items-center gap-3 rounded-xl bg-card border border-border/80 p-2.5 shadow-2xs">
-            <div className="relative">
+        <div className="border-t border-border/60 p-3">
+          <div className="flex items-center gap-2.5 rounded-lg p-2 hover:bg-accent/50 transition-colors">
+            <div className="relative shrink-0">
               {user.avatar ? (
                 <img
                   src={user.avatar}
                   alt={user.name}
-                  className="h-9 w-9 rounded-full object-cover ring-1 ring-border"
+                  className="h-8 w-8 rounded-full object-cover ring-1 ring-border"
                 />
               ) : (
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
-                  <UserIcon className="h-4 w-4" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground/70 text-xs font-medium">
+                  <UserIcon className="h-3.5 w-3.5" />
                 </div>
               )}
 
-              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-card" />
+              <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-card" />
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-xs font-bold text-foreground">
+            <div className="flex min-w-0 flex-1 flex-col leading-tight">
+              <span className="truncate text-[13px] font-medium text-foreground">
                 {user.name}
               </span>
 
-              <span className="text-[10px] text-muted-foreground truncate">
+              <span className="text-[11px] text-muted-foreground truncate">
                 {user.department || user.email}
               </span>
             </div>
@@ -239,7 +250,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={logout}
               title="Sign Out"
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+              className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
             >
               <LogOut className="h-4 w-4" />
             </button>
@@ -249,4 +260,3 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </aside>
   )
 }
-
