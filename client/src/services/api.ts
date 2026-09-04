@@ -45,6 +45,12 @@ export const tasksApi = {
 export const usersApi = {
   getAll: () => api.get<{ success: boolean; data: User[] }>('/users'),
   getById: (id: string) => api.get<{ success: boolean; data: User }>(`/users/${id}`),
+  create: (data: {
+    name: string
+    email: string
+    password: string
+    role: User['role']
+  }) => api.post<{ success: boolean; data: User }>('/users', data),
 }
 
 export default api

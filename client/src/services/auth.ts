@@ -115,6 +115,25 @@ export async function loginRequest(email: string, password: string): Promise<Log
   }
 }
 
+export async function registerRequest(
+  name: string,
+  email: string,
+  password: string
+): Promise<LoginResult> {
+  const response = await api.post<unknown>('/auth/register', {
+    name,
+    email,
+    password,
+  })
+
+  return {
+    token: extractToken(response.data),
+    user: tryExtractUser(response.data),
+  }
+}
+
+
+
 export async function fetchCurrentUser(): Promise<User> {
   const response = await api.get<unknown>('/auth/me')
   return extractUser(response.data)

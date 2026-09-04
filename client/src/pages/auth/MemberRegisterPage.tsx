@@ -1,13 +1,14 @@
+
 import React from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { Layers, ArrowRight, Loader2 } from 'lucide-react'
+
 import { useAuth } from '@/context/AuthContext'
-import {
-  getAuthErrorMessage,
-  getPostLoginRedirect,
-} from '@/services/auth'
+import { getAuthErrorMessage } from '@/services/auth'
+
 import {
   Card,
   CardContent,
@@ -16,46 +17,36 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Layers, ArrowRight, Loader2 } from 'lucide-react'
 
-// Login form validation schema
-const loginSchema = z.object({
+const registerSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name is required')
+    .min(2, 'Name must be at least 2 characters long'),
+
   email: z
     .string()
+    .trim()
     .min(1, 'Email is required')
     .email('Enter a valid email address'),
 
   password: z
     .string()
-    .min(1, 'Password is required'),
+    .min(1, 'Password is required')
+    .min(6, 'Password must be at least 6 characters long'),
 })
 
-type LoginFormData = z.infer<typeof loginSchema>
+type RegisterFormData = z.infer<typeof registerSchema>
 
-export const LoginPage: React.FC = () => {
+export const MemberRegisterPage: React.FC = () => {
   const [apiError, setApiError] = React.useState<string | null>(null)
 
-  const { login } = useAuth()
+  const { register: registerMember } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
-
-  /**
-   * Get the route the user originally tried to access.
-   * If there is no valid previous route, this defaults to /dashboard.
-   */
-  const from = getPostLoginRedirect(
-    (
-      location.state as {
-        from?: {
-          pathname?: string
-          search?: string
-          hash?: string
-        }
-      }
-    )?.from
-  )
 
   const {
     register,
@@ -64,30 +55,26 @@ export const LoginPage: React.FC = () => {
       errors,
       isSubmitting,
     },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
+      name: '',
       email: '',
       password: '',
     },
   })
 
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = async (data: RegisterFormData) => {
     setApiError(null)
 
     try {
-      await login(data.email.trim(), data.password)
+      await registerMember(
+        data.name.trim(),
+        data.email.trim().toLowerCase(),
+        data.password
+      )
 
-      /**
-       * /users is an Admin-only route.
-       *
-       * If a member was redirected here after login,
-       * send them to the Dashboard instead of showing
-       * the Access Restricted page.
-       */
-      const safeFrom = from === '/users' ? '/dashboard' : from
-
-      navigate(safeFrom, { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (error) {
       setApiError(getAuthErrorMessage(error))
     }
@@ -104,23 +91,23 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Welcome to TaskFlow
+            Join TaskFlow
           </h1>
 
           <p className="text-sm text-muted-foreground">
-            Internal task & workflow management platform
+            Create your member account to get started
           </p>
         </div>
 
-        {/* Login Card */}
+        {/* Registration Card */}
         <Card className="shadow-lg border-border">
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl">
-              Sign in to your account
+              Register as a Member
             </CardTitle>
 
             <CardDescription>
-              Enter your corporate credentials to continue
+              Enter your details to create a TaskFlow member account
             </CardDescription>
           </CardHeader>
 
@@ -137,13 +124,42 @@ export const LoginPage: React.FC = () => {
                 </div>
               )}
 
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="name"
+                  className="text-xs font-semibold text-foreground uppercase tracking-wider"
+                >
+                  Full Name
+                </label>
+
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  autoComplete="name"
+                  disabled={isSubmitting}
+                  {...register('name')}
+                />
+
+                {errors.name && (
+                  <p className="text-xs font-medium text-destructive">
+                    {errors.name.message}
+                  </p>
+                )}
+              </div>
+
               {/* Email */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                <label
+                  htmlFor="email"
+                  className="text-xs font-semibold text-foreground uppercase tracking-wider"
+                >
                   Email
                 </label>
 
                 <Input
+                  id="email"
                   type="email"
                   placeholder="name@example.com"
                   autoComplete="email"
@@ -160,13 +176,18 @@ export const LoginPage: React.FC = () => {
 
               {/* Password */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                <label
+                  htmlFor="password"
+                  className="text-xs font-semibold text-foreground uppercase tracking-wider"
+                >
                   Password
                 </label>
 
                 <Input
+                  id="password"
                   type="password"
-                  autoComplete="current-password"
+                  placeholder="Minimum 6 characters"
+                  autoComplete="new-password"
                   disabled={isSubmitting}
                   {...register('password')}
                 />
@@ -182,7 +203,6 @@ export const LoginPage: React.FC = () => {
 
             <CardFooter className="flex flex-col gap-3">
 
-              {/* Sign In Button */}
               <Button
                 type="submit"
                 className="w-full gap-2"
@@ -195,26 +215,26 @@ export const LoginPage: React.FC = () => {
                 )}
 
                 <span>
-                  {isSubmitting ? 'Signing in...' : 'Sign In'}
+                  {isSubmitting
+                    ? 'Creating account...'
+                    : 'Create Member Account'}
                 </span>
               </Button>
 
-              {/* Register Member */}
+              <div className="text-center text-xs text-muted-foreground">
+                Your account will be created with Member access.
+              </div>
+
               <div className="text-center text-sm text-muted-foreground">
-                Don't have an account?{' '}
+                Already have an account?{' '}
                 <button
                   type="button"
-                  onClick={() => navigate('/register')}
+                  onClick={() => navigate('/login')}
                   disabled={isSubmitting}
                   className="font-medium text-primary hover:underline disabled:pointer-events-none disabled:opacity-50"
                 >
-                  Register as a Member
+                  Sign In
                 </button>
-              </div>
-
-              {/* Security Message */}
-              <div className="text-center text-xs text-muted-foreground">
-                Protected by internal corporate SSO & RBAC policies
               </div>
 
             </CardFooter>
@@ -225,4 +245,4 @@ export const LoginPage: React.FC = () => {
   )
 }
 
-export default LoginPage
+export default MemberRegisterPage
