@@ -82,6 +82,9 @@ export const DashboardPage: React.FC = () => {
     }).length
   }, [tasks])
 
+  const completionRate =
+    totalTasksCount > 0 ? Math.round((completedCount / totalTasksCount) * 100) : 0
+
   const recentTasks = useMemo(
     () =>
       [...tasks]
@@ -118,32 +121,49 @@ export const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-10">
       {/* 1. Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border/70 bg-card p-6 sm:p-8 shadow-sm">
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Dashboard
-          </h1>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <p className="text-sm text-muted-foreground">
-              Welcome back, <span className="font-medium text-foreground">{user?.name}</span> — here's your overview.
-            </p>
-            {!isLoading && !error && overdueCount > 0 && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-0.5 text-[11px] font-medium text-destructive">
-                <AlertCircle className="h-3 w-3" />
-                {overdueCount} overdue
-              </span>
-            )}
+      <div className="flex flex-col gap-5 rounded-2xl border border-border/70 bg-gradient-to-br from-card to-muted/30 p-6 sm:p-8 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Dashboard
+            </h1>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <p className="text-sm text-muted-foreground">
+                Welcome back, <span className="font-medium text-foreground">{user?.name}</span> — here's your overview.
+              </p>
+              {!isLoading && !error && overdueCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-0.5 text-[11px] font-medium text-destructive">
+                  <AlertCircle className="h-3 w-3" />
+                  {overdueCount} overdue
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button asChild className="gap-2 font-medium">
+              <Link to="/tasks/create">
+                <Plus className="h-4 w-4" />
+                <span>Create Task</span>
+              </Link>
+            </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button asChild className="gap-2 font-medium">
-            <Link to="/tasks/create">
-              <Plus className="h-4 w-4" />
-              <span>Create Task</span>
-            </Link>
-          </Button>
-        </div>
+        {!isLoading && !error && totalTasksCount > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium text-muted-foreground">Overall completion</span>
+              <span className="font-semibold text-foreground tabular-nums">{completionRate}%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all duration-500 ease-out"
+                style={{ width: `${completionRate}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -165,6 +185,7 @@ export const DashboardPage: React.FC = () => {
               value={totalTasksCount}
               subtitle="All recorded tasks"
               icon={ListTodo}
+              variant="purple"
             />
 
             <StatCard
@@ -172,6 +193,7 @@ export const DashboardPage: React.FC = () => {
               value={todoCount}
               subtitle="Pending start"
               icon={Clock}
+              variant="default"
             />
 
             <StatCard
@@ -179,6 +201,7 @@ export const DashboardPage: React.FC = () => {
               value={inProgressCount}
               subtitle="Currently active"
               icon={Briefcase}
+              variant="blue"
             />
 
             <StatCard
@@ -186,6 +209,7 @@ export const DashboardPage: React.FC = () => {
               value={completedCount}
               subtitle="Resolved & finished"
               icon={CheckCircle2}
+              variant="emerald"
             />
           </div>
 

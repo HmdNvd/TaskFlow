@@ -16,18 +16,28 @@ interface StatCardProps {
   className?: string
 }
 
+const ICON_VARIANT_CLASSES: Record<NonNullable<StatCardProps['variant']>, string> = {
+  default: 'bg-muted text-muted-foreground',
+  blue: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400',
+  amber: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400',
+  emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
+  purple: 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400',
+  rose: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400',
+}
+
 export const StatCard: React.FC<StatCardProps> = ({
   title,
   value,
   subtitle,
   icon: Icon,
   trend,
+  variant = 'default',
   className,
 }) => {
   return (
     <Card
       className={cn(
-        'transition-colors duration-150 hover:border-foreground/20 border-border/70 bg-card shadow-sm',
+        'transition-all duration-200 hover:border-foreground/20 hover:shadow-md border-border/70 bg-card shadow-sm',
         className
       )}
     >
@@ -36,7 +46,12 @@ export const StatCard: React.FC<StatCardProps> = ({
           <span className="text-xs font-medium text-muted-foreground">
             {title}
           </span>
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <div
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-xl transition-colors',
+              ICON_VARIANT_CLASSES[variant]
+            )}
+          >
             <Icon className="h-4 w-4" />
           </div>
         </div>

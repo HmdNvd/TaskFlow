@@ -1,5 +1,6 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import type { Task } from '@/types'
 
 interface StatusDistributionProps {
@@ -74,8 +75,8 @@ export const StatusDistribution: React.FC<StatusDistributionProps> = ({ tasks })
                     strokeWidth="10"
                     strokeDasharray={arc.dashArray}
                     strokeDashoffset={arc.dashOffset}
-                    strokeLinecap="butt"
-                    className={arc.color}
+                    strokeLinecap="round"
+                    className={cn(arc.color, 'transition-all duration-500 ease-out')}
                   />
                 ) : null
               )}

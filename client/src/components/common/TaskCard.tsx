@@ -32,14 +32,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <Card
       className={cn(
-        'group relative overflow-hidden rounded-xl border border-border/70 bg-card p-5 transition-all duration-150 hover:border-foreground/20 hover:shadow-md',
+        'group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-5 transition-all duration-200 hover:border-foreground/15 hover:shadow-md hover:-translate-y-0.5',
         className
       )}
     >
       {/* Header: Task ID & Due Date */}
-      <div className="flex items-center justify-between border-b border-border/50 pb-3 text-xs text-muted-foreground">
-        <span className="font-mono font-bold text-foreground tracking-tight">
-          {task.id}
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span className="font-mono text-[11px] font-semibold text-muted-foreground/80 tracking-tight">
+          #{task.id}
         </span>
 
         {task.due_date && (
@@ -51,33 +51,34 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <CardContent className="p-0 pt-3.5 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <h3
-            onClick={() => onView && onView(task)}
-            className="text-base font-bold tracking-tight text-foreground transition-colors hover:text-primary cursor-pointer line-clamp-1"
-          >
-            {task.title}
-          </h3>
-          <TaskPriorityBadge priority={task.priority} size="sm" />
-        </div>
+      <CardContent className="p-0 pt-3 space-y-3">
+        {/* Title — primary hierarchy */}
+        <h3
+          onClick={() => onView && onView(task)}
+          className="text-base font-semibold tracking-tight text-foreground transition-colors hover:text-primary cursor-pointer line-clamp-1"
+        >
+          {task.title}
+        </h3>
 
-        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
           {task.description}
         </p>
 
-        {/* Card Footer: Status Pill, Assignee, and Action buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-border/40 mt-3">
-          {/* Status Badge */}
+        {/* Priority + Status on the same row */}
+        <div className="flex items-center gap-2 pt-1">
+          <TaskPriorityBadge priority={task.priority} size="sm" />
           <TaskStatusBadge status={task.status} size="sm" />
+        </div>
 
+        {/* Card Footer: Assignee + Action buttons */}
+        <div className="flex items-center justify-between gap-2 pt-3.5 border-t border-border/40 mt-1">
           {/* Assignee */}
           {task.assigned_to ? (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2 py-1 rounded-full">
-              <div className="h-4 w-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[9px] font-bold">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+              <div className="h-5 w-5 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-semibold">
                 {task.assigned_to.name[0]}
               </div>
-              <span className="text-[11px] font-medium text-foreground/90 truncate max-w-[110px]">
+              <span className="text-[11px] font-medium text-foreground/90 truncate max-w-[130px]">
                 {task.assigned_to.name}
               </span>
             </div>
@@ -86,7 +87,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => onView && onView(task)}
               className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"

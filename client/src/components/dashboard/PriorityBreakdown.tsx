@@ -8,8 +8,8 @@ interface PriorityBreakdownProps {
 }
 
 const ROWS: { key: Task['priority']; label: string; bar: string }[] = [
-  { key: 'high', label: 'High', bar: 'bg-amber-500' },
-  { key: 'medium', label: 'Medium', bar: 'bg-blue-500' },
+  { key: 'high', label: 'High', bar: 'bg-rose-500' },
+  { key: 'medium', label: 'Medium', bar: 'bg-amber-500' },
   { key: 'low', label: 'Low', bar: 'bg-slate-400' },
 ]
 
@@ -32,9 +32,9 @@ export const PriorityBreakdown: React.FC<PriorityBreakdownProps> = ({ tasks }) =
                 <span className="text-muted-foreground">{row.label}</span>
                 <span className="font-medium text-foreground tabular-nums">{count}</span>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                 <div
-                  className={cn('h-full rounded-full transition-all duration-300', row.bar)}
+                  className={cn('h-full rounded-full transition-all duration-500 ease-out', row.bar)}
                   style={{ width: `${percent}%` }}
                 />
               </div>
