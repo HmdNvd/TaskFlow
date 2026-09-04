@@ -21,6 +21,7 @@ import { TaskStatusBadge } from '@/components/common/TaskStatusBadge'
 import { TaskPriorityBadge } from '@/components/common/TaskPriorityBadge'
 import { TaskDetailSkeleton } from '@/components/common/skeletons'
 import { ErrorState } from '@/components/common/ErrorState'
+import { useAuth } from '@/context/AuthContext'
 import type { Task } from '@/types'
 
 interface TaskDetailModalProps {
@@ -40,6 +41,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   isLoading = false,
   error = null,
 }) => {
+  const { isAdmin } = useAuth()
+  const canDelete = isAdmin && !!onDelete
+
   if (!open || (!task && !isLoading && !error)) return null
 
   return (
@@ -132,7 +136,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         </div>
 
         <DialogFooter className="flex flex-col sm:flex-row justify-between items-center gap-2 border-t border-border/60 pt-4">
-          {onDelete ? (
+          {canDelete ? (
             <Button
               type="button"
               variant="ghost"

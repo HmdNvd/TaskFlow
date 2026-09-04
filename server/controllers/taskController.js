@@ -82,8 +82,8 @@ exports.getTasks = async (req, res, next) => {
     }
 
     if (search) {
-      query += ` AND (t.title LIKE ? OR t.description LIKE ?)`;
-      params.push(`%${search}%`, `%${search}%`);
+      query += ` AND (t.title LIKE ? OR t.description LIKE ? OR u_assigned.name LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     query += ` ORDER BY t.created_at DESC`;
@@ -159,6 +159,13 @@ exports.createTask = async (req, res, next) => {
     return res.status(400).json({
       success: false,
       message: `Invalid priority value. Allowed: ${VALID_PRIORITIES.join(', ')}`
+    });
+  }
+
+  if (req.user.role === 'member' && assigned_to !== undefined) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Members are not permitted to assign tasks.'
     });
   }
 

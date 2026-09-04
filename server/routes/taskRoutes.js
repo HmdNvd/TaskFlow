@@ -15,6 +15,7 @@ router.get('/', taskController.getTasks);
 router.get('/:id', taskController.getTaskById);
 router.post('/', taskController.createTask);
 router.patch('/:id', taskController.updateTask);
+router.put('/:id', taskController.updateTask);
 
 // Delete task: strictly Admin only
 router.delete('/:id', authorizeRoles('admin'), taskController.deleteTask);

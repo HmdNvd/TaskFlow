@@ -122,10 +122,39 @@ function extractTasks(payload: unknown): Task[] {
     .filter((task): task is Task => task !== null)
 }
 
+export interface FetchTasksParams {
+  search?: string
+  status?: string
+  priority?: string
+}
+
 export async function fetchTasks(
+  signalOrParams?: AbortSignal | FetchTasksParams,
+  maybeSignal?: AbortSignal,
+): Promise<Task[]> {
+  let params: FetchTasksParams | undefined
+  let signal: AbortSignal | undefined
+
+  if (signalOrParams instanceof AbortSignal) {
+    signal = signalOrParams
+  } else if (signalOrParams) {
+    params = signalOrParams
+    signal = maybeSignal
+  }
+
+  const response = await api.get<unknown>('/tasks', { signal, params })
+
+  return extractTasks(response.data)
+}
+
+export async function searchTasks(
+  query: string,
   signal?: AbortSignal,
 ): Promise<Task[]> {
-  const response = await api.get<unknown>('/tasks', { signal })
+  const response = await api.get<unknown>('/tasks', {
+    params: { search: query },
+    signal,
+  })
 
   return extractTasks(response.data)
 }
@@ -163,7 +192,7 @@ export interface CreateTaskPayload {
   description: string
   status: TaskStatus
   priority: TaskPriority
-  assigned_to: number | null
+  assigned_to?: number | null
   due_date: string | null
 }
 
@@ -178,5 +207,36 @@ export async function createTask(
 export async function deleteTask(taskId: number) {
   const response = await api.delete(`/tasks/${taskId}`)
 
+  return response.data
+}
+
+export async function fetchTaskById(
+  taskId: number | string,
+  signal?: AbortSignal,
+): Promise<Task> {
+  const response = await api.get<unknown>(`/tasks/${taskId}`, { signal })
+  const data = asRecord(response.data)
+  const rawTask = data ? data.data : null
+  const task = mapTask(rawTask)
+  if (!task) {
+    throw new Error('Task not found or invalid format')
+  }
+  return task
+}
+
+export interface UpdateTaskPayload {
+  title?: string
+  description?: string
+  status?: TaskStatus
+  priority?: TaskPriority
+  assigned_to?: number | null
+  due_date?: string | null
+}
+
+export async function updateTask(
+  taskId: number | string,
+  payload: UpdateTaskPayload,
+) {
+  const response = await api.patch(`/tasks/${taskId}`, payload)
   return response.data
 }

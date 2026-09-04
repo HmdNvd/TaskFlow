@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   UserPlus,
   ShieldCheck,
@@ -7,6 +8,7 @@ import {
   Mail,
   Building,
 } from 'lucide-react'
+
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,219 +22,389 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { MOCK_USERS } from '@/data/mockData'
+
 import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
-import { UsersSkeleton } from '@/components/common/skeletons'
+
+import { usersApi } from '@/services/api'
 import type { User, Role } from '@/types'
 
-export const UsersPage: React.FC = () => {
-  const [users, setUsers] = useState<User[]>(MOCK_USERS)
+const UsersPage: React.FC = () => {
+  const [users, setUsers] = useState<User[]>([])
   const [search, setSearch] = useState('')
+
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
+    password: '',
     role: 'member' as Role,
-    department: 'Engineering',
   })
 
-  // Ready for API: set isLoading/error from fetch instead of mock data.
-  const isLoading: boolean = false
-  const error: string | null = null
+  const fetchUsers = async () => {
+    setIsLoading(true)
+    setError(null)
 
-  const filteredUsers = users.filter(
-    (u) =>
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      (u.department && u.department.toLowerCase().includes(search.toLowerCase()))
-  )
+    try {
+      const response = await usersApi.getAll()
+      setUsers(response.data.data)
+    } catch (error: any) {
+      setError(
+        error?.response?.data?.message ||
+          'Failed to load users. Please try again.'
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-  const handleCreateUser = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newUser.name || !newUser.email) return
+  useEffect(() => {
+    fetchUsers()
+  }, [])
 
-    const created: User = {
-      id: `usr-00${users.length + 1}`,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      department: newUser.department,
-      created_at: new Date().toISOString().split('T')[0],
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase()
+
+    if (!query) {
+      return users
     }
 
-    setUsers([...users, created])
-    setIsAddOpen(false)
-    setNewUser({ name: '', email: '', role: 'member', department: 'Engineering' })
+    return users.filter(
+      (user) =>
+        user.name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query) ||
+        user.department?.toLowerCase().includes(query)
+    )
+  }, [users, search])
+
+  const resetForm = () => {
+    setNewUser({
+      name: '',
+      email: '',
+      password: '',
+      role: 'member',
+    })
+
+    setFormError(null)
+  }
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const name = newUser.name.trim()
+    const email = newUser.email.trim().toLowerCase()
+    const password = newUser.password
+
+    if (!name || !email || !password) {
+      setFormError('Name, email, and password are required.')
+      return
+    }
+
+    if (password.length < 6) {
+      setFormError('Password must be at least 6 characters long.')
+      return
+    }
+
+    setIsCreating(true)
+    setFormError(null)
+
+    try {
+      await usersApi.create({
+        name,
+        email,
+        password,
+        role: newUser.role,
+      })
+
+      // Reload users from the database so the new user
+      // immediately appears in the Team Directory.
+      await fetchUsers()
+
+      setIsAddOpen(false)
+      resetForm()
+
+      console.log('User created successfully')
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        'Failed to create user. Please try again.'
+
+      setFormError(message)
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleDialogChange = (open: boolean) => {
+    setIsAddOpen(open)
+
+    if (!open) {
+      resetForm()
+    }
   }
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Page Header */}
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans">
-              Team Directory
-            </h1>
-            <Badge variant="admin" className="text-xs font-bold">
-              Admin Only
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage organization members, system roles, and department assignments.
+          <h1 className="text-2xl font-bold tracking-tight">
+            Team Directory
+          </h1>
+
+          <p className="text-muted-foreground">
+            Manage users and their roles.
           </p>
         </div>
 
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <Dialog open={isAddOpen} onOpenChange={handleDialogChange}>
           <DialogTrigger asChild>
-            <Button className="gap-2 shadow-sm rounded-xl font-semibold">
-              <UserPlus className="h-4 w-4" />
-              <span>Invite User</span>
+            <Button>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Invite User
             </Button>
           </DialogTrigger>
+
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite New Team Member</DialogTitle>
-              <DialogDescription>
-                Assign role and provide corporate email to generate an onboarding invitation.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateUser} className="space-y-4 py-2">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Full Name
-                </label>
-                <Input
-                  placeholder="e.g. Robin Banks"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  required
-                />
-              </div>
+            <form onSubmit={handleCreateUser}>
+              <DialogHeader>
+                <DialogTitle>Add New User</DialogTitle>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Corporate Email
-                </label>
-                <Input
-                  type="email"
-                  placeholder="e.g. robin.banks@taskflow.internal"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  required
-                />
-              </div>
+                <DialogDescription>
+                  Create a new user account and assign a role.
+                </DialogDescription>
+              </DialogHeader>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
+              <div className="space-y-4 py-4">
+                {/* Name */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="name"
+                    className="text-sm font-medium"
+                  >
+                    Full Name
+                  </label>
+
+                  <Input
+                    id="name"
+                    placeholder="Enter full name"
+                    value={newUser.name}
+                    onChange={(e) =>
+                      setNewUser((current) => ({
+                        ...current,
+                        name: e.target.value,
+                      }))
+                    }
+                    disabled={isCreating}
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="email"
+                    className="text-sm font-medium"
+                  >
+                    Corporate Email
+                  </label>
+
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="user@company.com"
+                    value={newUser.email}
+                    onChange={(e) =>
+                      setNewUser((current) => ({
+                        ...current,
+                        email: e.target.value,
+                      }))
+                    }
+                    disabled={isCreating}
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="password"
+                    className="text-sm font-medium"
+                  >
+                    Temporary Password
+                  </label>
+
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Minimum 6 characters"
+                    value={newUser.password}
+                    onChange={(e) =>
+                      setNewUser((current) => ({
+                        ...current,
+                        password: e.target.value,
+                      }))
+                    }
+                    disabled={isCreating}
+                  />
+
+                  <p className="text-xs text-muted-foreground">
+                    The user can use this password to log in.
+                  </p>
+                </div>
+
+                {/* Role */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="role"
+                    className="text-sm font-medium"
+                  >
                     Assigned Role
                   </label>
+
                   <select
+                    id="role"
                     value={newUser.role}
-                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    onChange={(e) =>
+                      setNewUser((current) => ({
+                        ...current,
+                        role: e.target.value as Role,
+                      }))
+                    }
+                    disabled={isCreating}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   >
-                    <option value="member">member</option>
-                    <option value="admin">admin</option>
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Department
-                  </label>
-                  <Input
-                    value={newUser.department}
-                    onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
-                  />
-                </div>
+                {/* Error */}
+                {formError && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {formError}
+                  </div>
+                )}
               </div>
 
-              <DialogFooter className="pt-2">
-                <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleDialogChange(false)}
+                  disabled={isCreating}
+                >
                   Cancel
                 </Button>
-                <Button type="submit">Send Invitation</Button>
+
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? 'Creating...' : 'Create User'}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Search Input */}
-      <Card className="border-border/70 shadow-2xs">
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/70" />
-            <Input
-              placeholder="Search users by name, email, or department..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-10 rounded-xl"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
-      {/* Users List Grid */}
-      {isLoading ? (
-        <UsersSkeleton count={6} />
-      ) : error ? (
-        <ErrorState title="Unable to load users" message={error} />
-      ) : filteredUsers.length === 0 ? (
+        <Input
+          placeholder="Search users..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Loading */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <p className="text-sm text-muted-foreground">
+            Loading users...
+          </p>
+        </div>
+      )}
+
+      {/* Error */}
+      {!isLoading && error && (
+        <ErrorState message={error} />
+      )}
+
+      {/* Empty */}
+      {!isLoading && !error && filteredUsers.length === 0 && (
         <EmptyState
           title="No users found"
           description={
             search
-              ? 'Try a different name, email, or department.'
-              : 'There are currently no users in the directory.'
+              ? 'Try changing your search.'
+              : 'There are no users to display.'
           }
         />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
+      )}
+
+      {/* Users */}
+      {!isLoading && !error && filteredUsers.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredUsers.map((user) => (
-            <Card key={user.id} className="hover:shadow-md transition-shadow border-border/70 rounded-2xl">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between gap-3">
+            <Card key={user.id}>
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    {user.avatar ? (
-                      <img
-                        src={user.avatar}
-                        alt={user.name}
-                        className="h-12 w-12 rounded-2xl object-cover ring-2 ring-primary/20 shadow-xs"
-                      />
-                    ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary font-extrabold text-sm">
-                        {user.name[0]}
-                      </div>
-                    )}
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                      {user.avatar ? (
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="font-semibold">
+                          {user.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
 
                     <div>
-                      <h4 className="text-sm font-bold text-foreground">{user.name}</h4>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                        <Mail className="h-3 w-3" />
-                        <span>{user.email}</span>
+                      <h3 className="font-semibold">
+                        {user.name}
+                      </h3>
+
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Mail className="h-3.5 w-3.5" />
+                        {user.email}
                       </div>
-                      {user.department && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                          <Building className="h-3 w-3" />
-                          <span>{user.department}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
 
-                  <Badge variant={user.role === 'admin' ? 'admin' : 'member'}>
+                  <Badge
+                    variant={
+                      user.role === 'admin'
+                        ? 'default'
+                        : 'secondary'
+                    }
+                  >
                     {user.role === 'admin' ? (
-                      <ShieldCheck className="mr-1 h-3 w-3" />
+                      <ShieldCheck className="mr-1 h-3.5 w-3.5" />
                     ) : (
-                      <UserCheck className="mr-1 h-3 w-3" />
+                      <UserCheck className="mr-1 h-3.5 w-3.5" />
                     )}
+
                     {user.role}
                   </Badge>
                 </div>
+
+                {user.department && (
+                  <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Building className="h-4 w-4" />
+                    {user.department}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -241,4 +413,5 @@ export const UsersPage: React.FC = () => {
     </div>
   )
 }
+
 export default UsersPage

@@ -1,16 +1,18 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Save,
   ArrowLeft,
   Sparkles,
   CheckCircle2,
   Loader2,
+  Info,
 } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { MOCK_USERS } from '@/data/mockData'
-import type { Task, TaskPriority, TaskStatus } from '@/types'
+import { useAuth } from '@/context/AuthContext'
+import { usersApi } from '@/services/api'
+import type { Task, TaskPriority, TaskStatus, User } from '@/types'
 
 interface TaskFormProps {
   initialData?: Partial<Task>
@@ -20,6 +22,11 @@ interface TaskFormProps {
   isSubmitting?: boolean
 }
 
+const formatDateForInput = (dateStr?: string | null): string => {
+  if (!dateStr) return ''
+  return dateStr.split('T')[0]
+}
+
 export const TaskForm: React.FC<TaskFormProps> = ({
   initialData,
   isEdit = false,
@@ -27,6 +34,10 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   onCancel,
   isSubmitting = false,
 }) => {
+  const { isAdmin } = useAuth()
+  const isMemberEditing = isEdit && !isAdmin
+  const canAssign = isAdmin
+
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
     description: initialData?.description || '',
@@ -34,14 +45,62 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     priority: (initialData?.priority || 'medium') as TaskPriority,
     assigned_to_id: initialData?.assigned_to?.id != null
       ? String(initialData.assigned_to.id)
-      : MOCK_USERS[1]?.id || '',
-    due_date: initialData?.due_date || new Date().toISOString().split('T')[0],
+      : '',
+    due_date: formatDateForInput(initialData?.due_date) || new Date().toISOString().split('T')[0],
   })
 
+  const [users, setUsers] = useState<User[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submittedSuccess, setSubmittedSuccess] = useState(false)
 
+  // Fetch users for assignee dropdown (Admin only; GET /api/users is admin-only)
+  useEffect(() => {
+    if (!canAssign) {
+      return
+    }
+
+    let isMounted = true
+    usersApi
+      .getAll()
+      .then((res) => {
+        if (!isMounted) return
+        const payload = res.data
+        if (Array.isArray(payload)) {
+          setUsers(payload)
+        } else if (payload && Array.isArray((payload as any).data)) {
+          setUsers((payload as any).data)
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load users for assignment:', err)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [canAssign])
+
+  // Synchronize formData when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        title: initialData.title || '',
+        description: initialData.description || '',
+        status: (initialData.status || 'todo') as TaskStatus,
+        priority: (initialData.priority || 'medium') as TaskPriority,
+        assigned_to_id: initialData.assigned_to?.id != null
+          ? String(initialData.assigned_to.id)
+          : '',
+        due_date: formatDateForInput(initialData.due_date) || '',
+      })
+    }
+  }, [initialData])
+
   const validate = () => {
+    if (isMemberEditing) {
+      return true
+    }
+
     const errs: Record<string, string> = {}
     if (!formData.title.trim()) {
       errs.title = 'Task title is required'
@@ -65,21 +124,31 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     e.preventDefault()
     if (!validate()) return
 
-    const selectedAssignee = MOCK_USERS.find((u) => u.id === formData.assigned_to_id) || null
+    if (isMemberEditing) {
+      setSubmittedSuccess(true)
+      onSubmit({
+        status: formData.status,
+      })
+      return
+    }
 
     const taskPayload: Partial<Task> = {
       title: formData.title.trim(),
       description: formData.description.trim(),
       status: formData.status,
       priority: formData.priority,
-      assigned_to: selectedAssignee
+      due_date: formData.due_date || null,
+    }
+
+    if (canAssign) {
+      const selectedAssignee = users.find((u) => String(u.id) === formData.assigned_to_id) || null
+      taskPayload.assigned_to = selectedAssignee
         ? {
-            id: Number(String(selectedAssignee.id).replace(/\D/g, '')) || 0,
+            id: Number(selectedAssignee.id),
             name: selectedAssignee.name,
             email: selectedAssignee.email,
           }
-        : null,
-      due_date: formData.due_date,
+        : null
     }
 
     setSubmittedSuccess(true)
@@ -100,7 +169,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({
               </CardTitle>
               <CardDescription className="text-xs">
                 {isEdit
-                  ? `Update specifications and assignments for task ${initialData?.id || ''}.`
+                  ? isMemberEditing
+                    ? `Update status for task #${initialData?.id || ''}.`
+                    : `Update specifications and assignments for task #${initialData?.id || ''}.`
                   : 'Add a new task to the internal TaskFlow system.'}
               </CardDescription>
             </div>
@@ -108,7 +179,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
           {isEdit && initialData?.id && (
             <span className="font-mono text-xs font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-md">
-              {initialData.id}
+              #{initialData.id}
             </span>
           )}
         </div>
@@ -116,6 +187,14 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6 pt-6">
+          {/* Member notification banner */}
+          {isMemberEditing && (
+            <div className="flex items-center gap-2 rounded-xl bg-primary/5 p-3 text-xs text-primary border border-primary/20">
+              <Info className="h-4 w-4 shrink-0" />
+              <span>You are viewing this task as a Member. Members are permitted to update task status.</span>
+            </div>
+          )}
+
           {/* Title */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
@@ -124,11 +203,12 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             <Input
               placeholder="e.g. Implement user authentication middleware"
               value={formData.title}
+              disabled={isMemberEditing}
               onChange={(e) => {
                 setFormData({ ...formData, title: e.target.value })
                 if (errors.title) setErrors({ ...errors, title: '' })
               }}
-              className={errors.title ? 'border-destructive focus-visible:ring-destructive' : ''}
+              className={`${errors.title ? 'border-destructive focus-visible:ring-destructive' : ''} disabled:opacity-60 disabled:cursor-not-allowed`}
             />
             {errors.title && (
               <p className="text-xs font-medium text-destructive mt-1">{errors.title}</p>
@@ -142,7 +222,8 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             </label>
             <textarea
               rows={4}
-              className={`w-full rounded-md border bg-background p-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+              disabled={isMemberEditing}
+              className={`w-full rounded-md border bg-background p-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed ${
                 errors.description
                   ? 'border-destructive focus-visible:ring-destructive'
                   : 'border-input'
@@ -184,10 +265,11 @@ export const TaskForm: React.FC<TaskFormProps> = ({
               </label>
               <select
                 value={formData.priority}
+                disabled={isMemberEditing}
                 onChange={(e) =>
                   setFormData({ ...formData, priority: e.target.value as TaskPriority })
                 }
-                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -196,24 +278,28 @@ export const TaskForm: React.FC<TaskFormProps> = ({
             </div>
           </div>
 
-          {/* Assignee & Due Date Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Assignee (Admin only) & Due Date Row */}
+          <div className={`grid grid-cols-1 gap-4 ${canAssign ? 'sm:grid-cols-2' : ''}`}>
+            {canAssign && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
                 Assignee
               </label>
               <select
                 value={formData.assigned_to_id}
+                disabled={isMemberEditing}
                 onChange={(e) => setFormData({ ...formData, assigned_to_id: e.target.value })}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {MOCK_USERS.map((user) => (
-                  <option key={user.id} value={user.id}>
+                <option value="">Unassigned</option>
+                {users.map((user) => (
+                  <option key={user.id} value={String(user.id)}>
                     {user.name} ({user.role})
                   </option>
                 ))}
               </select>
             </div>
+            )}
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
@@ -222,11 +308,12 @@ export const TaskForm: React.FC<TaskFormProps> = ({
               <Input
                 type="date"
                 value={formData.due_date}
+                disabled={isMemberEditing}
                 onChange={(e) => {
                   setFormData({ ...formData, due_date: e.target.value })
                   if (errors.due_date) setErrors({ ...errors, due_date: '' })
                 }}
-                className={errors.due_date ? 'border-destructive focus-visible:ring-destructive' : ''}
+                className={`${errors.due_date ? 'border-destructive focus-visible:ring-destructive' : ''} disabled:opacity-60 disabled:cursor-not-allowed`}
               />
               {errors.due_date && (
                 <p className="text-xs font-medium text-destructive mt-1">{errors.due_date}</p>

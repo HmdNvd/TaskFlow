@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Plus,
   Search,
@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { ErrorState } from '@/components/common/ErrorState'
 import { TaskListSkeleton } from '@/components/common/skeletons'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAuth } from '@/context/AuthContext'
 import {
   fetchTasks,
   getTasksErrorMessage,
@@ -34,7 +35,12 @@ import {
 import type { Task } from '@/types'
 
 export const TasksListPage: React.FC = () => {
+  const { isAdmin } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const taskIdParam = searchParams.get('taskId')
+  const searchParam = searchParams.get('search')
+
   const [tasks, setTasks] = useState<Task[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -66,6 +72,32 @@ export const TasksListPage: React.FC = () => {
     loadTasks()
   }, [])
 
+  // Sync search input with URL search param if provided
+  useEffect(() => {
+    if (searchParam !== null) {
+      setSearchQuery(searchParam)
+    }
+  }, [searchParam])
+
+  // Automatically open task details if taskId is in URL
+  useEffect(() => {
+    if (taskIdParam && tasks.length > 0) {
+      const found = tasks.find((t) => String(t.id) === taskIdParam)
+      if (found) {
+        setSelectedTask(found)
+      }
+    }
+  }, [taskIdParam, tasks])
+
+  const handleCloseModal = () => {
+    setSelectedTask(null)
+    if (searchParams.has('taskId')) {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('taskId')
+      setSearchParams(nextParams, { replace: true })
+    }
+  }
+
   // Real filtering logic matching allowed status/priority values
   const filteredTasks = tasks.filter((task) => {
     const q = searchQuery.toLowerCase().trim()
@@ -86,6 +118,12 @@ export const TasksListPage: React.FC = () => {
     setSearchQuery('')
     setStatusFilter('all')
     setPriorityFilter('all')
+    if (searchParams.has('search') || searchParams.has('taskId')) {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('search')
+      nextParams.delete('taskId')
+      setSearchParams(nextParams, { replace: true })
+    }
   }
 
   const handleDeleteConfirmed = async () => {
@@ -246,7 +284,7 @@ export const TasksListPage: React.FC = () => {
               key={task.id}
               task={task}
               onView={(t) => setSelectedTask(t)}
-              onDelete={(t) => setTaskToDelete(t)}
+              onDelete={isAdmin ? (t) => setTaskToDelete(t) : undefined}
             />
           ))}
         </div>
@@ -254,7 +292,7 @@ export const TasksListPage: React.FC = () => {
         <TaskTable
           tasks={filteredTasks}
           onView={(t) => setSelectedTask(t)}
-          onDelete={(t) => setTaskToDelete(t)}
+          onDelete={isAdmin ? (t) => setTaskToDelete(t) : undefined}
         />
       )}
 
@@ -262,11 +300,11 @@ export const TasksListPage: React.FC = () => {
       <TaskDetailModal
         task={selectedTask}
         open={!!selectedTask}
-        onClose={() => setSelectedTask(null)}
-        onDelete={(t) => {
-          setSelectedTask(null)
+        onClose={handleCloseModal}
+        onDelete={isAdmin ? (t) => {
+          handleCloseModal()
           setTaskToDelete(t)
-        }}
+        } : undefined}
       />
 
       {/* Delete Task Confirmation Dialog */}

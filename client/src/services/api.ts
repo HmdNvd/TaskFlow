@@ -34,17 +34,23 @@ api.interceptors.response.use(
 )
 
 export const tasksApi = {
-  getAll: (params?: { status?: string; priority?: string; assigned_to?: string }) =>
+  getAll: (params?: { status?: string; priority?: string; assigned_to?: string; search?: string }) =>
     api.get('/tasks', { params }),
   getById: (id: number | string) => api.get(`/tasks/${id}`),
   create: (data: Partial<Task>) => api.post('/tasks', data),
-  update: (id: number | string, data: Partial<Task>) => api.put(`/tasks/${id}`, data),
+  update: (id: number | string, data: Partial<Task>) => api.patch(`/tasks/${id}`, data),
   delete: (id: number | string) => api.delete(`/tasks/${id}`),
 }
 
 export const usersApi = {
-  getAll: () => api.get<User[]>('/users'),
-  getById: (id: string) => api.get<User>(`/users/${id}`),
+  getAll: () => api.get<{ success: boolean; data: User[] }>('/users'),
+  getById: (id: string) => api.get<{ success: boolean; data: User }>(`/users/${id}`),
+  create: (data: {
+    name: string
+    email: string
+    password: string
+    role: User['role']
+  }) => api.post<{ success: boolean; data: User }>('/users', data),
 }
 
 export default api

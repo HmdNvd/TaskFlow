@@ -1,11 +1,16 @@
 import React from 'react'
+
 import { Routes, Route, Navigate } from 'react-router-dom'
+
 import { AppLayout } from '@/components/layout/AppLayout'
+
 import { ProtectedRoute } from '@/routes/ProtectedRoute'
+
 import { GuestRoute } from '@/routes/GuestRoute'
 
 // Pages
 import LoginPage from '@/pages/auth/LoginPage'
+import MemberRegisterPage from '@/pages/auth/MemberRegisterPage'
 import DashboardPage from '@/pages/dashboard/DashboardPage'
 import TasksListPage from '@/pages/tasks/TasksListPage'
 import TaskCreatePage from '@/pages/tasks/TaskCreatePage'
@@ -26,6 +31,15 @@ export const AppRoutes: React.FC = () => {
         }
       />
 
+      <Route
+        path="/register"
+        element={
+          <GuestRoute>
+            <MemberRegisterPage />
+          </GuestRoute>
+        }
+      />
+
       {/* Authenticated Layout Routes */}
       <Route
         path="/"
@@ -34,15 +48,15 @@ export const AppRoutes: React.FC = () => {
             <AppLayout />
           </ProtectedRoute>
         }
-      // element={
-      //   <AppLayout />
-      // }
-
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
+
         <Route path="dashboard" element={<DashboardPage />} />
+
         <Route path="tasks" element={<TasksListPage />} />
+
         <Route path="tasks/create" element={<TaskCreatePage />} />
+
         <Route path="tasks/:id/edit" element={<TaskEditPage />} />
 
         {/* Admin-only Route */}
@@ -61,4 +75,5 @@ export const AppRoutes: React.FC = () => {
     </Routes>
   )
 }
+
 export default AppRoutes
