@@ -1,7 +1,9 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
-// Helper to generate a deterministic room ID for 1-on-1 chats
+// Registry to track user-to-socket connections: Map<userId, Set<socketId>>
+const activeConnections = new Map();
+
 const getRoomId = (user1, user2) => {
   const min = Math.min(Number(user1), Number(user2));
   const max = Math.max(Number(user1), Number(user2));
@@ -9,7 +11,7 @@ const getRoomId = (user1, user2) => {
 };
 
 module.exports = (io) => {
-  // 1. WebSocket Authentication Middleware
+  // 1. WebSocket JWT Authentication Handshake
   io.use((socket, next) => {
     const rawToken = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
 
@@ -28,21 +30,30 @@ module.exports = (io) => {
     }
   });
 
-  // 2. Connection Lifecycle
+  // 2. Connection Lifecycle - Synchronous Setup
   io.on('connection', (socket) => {
     const currentUserId = socket.user.id;
 
-    // Join user's personal room for direct system notifications
+    // Track active connection
+    if (!activeConnections.has(currentUserId)) {
+      activeConnections.set(currentUserId, new Set());
+    }
+    activeConnections.get(currentUserId).add(socket.id);
+
+    // Join personal notification channel
     socket.join(`user_${currentUserId}`);
 
-    // Join a private 1-on-1 chat room with another user
+    // ==========================================
+    // REGISTER ALL LISTENERS SYNCHRONOUSLY FIRST
+    // ==========================================
+
+    // --- 1-on-1 Chat Room Setup & History ---
     socket.on('chat:join', async ({ targetUserId }) => {
       if (!targetUserId) return;
 
       const roomId = getRoomId(currentUserId, targetUserId);
       socket.join(roomId);
 
-      // Fetch chat history (excluding messages deleted for this user)
       try {
         const query = `
           SELECT m.id, m.sender_id, m.receiver_id, 
@@ -50,7 +61,7 @@ module.exports = (io) => {
                    WHEN m.is_deleted_for_everyone = 1 THEN '[This message was deleted]'
                    ELSE m.encrypted_content 
                  END AS encrypted_content,
-                 m.iv, m.is_deleted_for_everyone, m.created_at
+                 m.iv, m.status, m.read_at, m.is_deleted_for_everyone, m.created_at
           FROM messages m
           LEFT JOIN message_user_deletions mud 
                  ON m.id = mud.message_id AND mud.user_id = ?
@@ -66,13 +77,22 @@ module.exports = (io) => {
           targetUserId, currentUserId
         ]);
 
-        socket.emit('chat:history', { roomId, messages: history });
+        const [targetUser] = await pool.execute(
+          'SELECT is_online, last_seen FROM users WHERE id = ?',
+          [targetUserId]
+        );
+
+        socket.emit('chat:history', {
+          roomId,
+          messages: history,
+          targetUser: targetUser[0] || null
+        });
       } catch (err) {
         socket.emit('error', { message: 'Failed to retrieve chat history.' });
       }
     });
 
-    // Send a message
+    // --- Send Message ---
     socket.on('message:send', async ({ receiverId, encryptedContent, iv }) => {
       if (!receiverId || !encryptedContent || !iv) {
         return socket.emit('error', { message: 'Malformed message payload.' });
@@ -81,10 +101,13 @@ module.exports = (io) => {
       const targetId = Number(receiverId);
       const roomId = getRoomId(currentUserId, targetId);
 
+      const isReceiverOnline = activeConnections.has(targetId) && activeConnections.get(targetId).size > 0;
+      const initialStatus = isReceiverOnline ? 'delivered' : 'sent';
+
       try {
         const [result] = await pool.execute(
-          'INSERT INTO messages (sender_id, receiver_id, encrypted_content, iv) VALUES (?, ?, ?, ?)',
-          [currentUserId, targetId, encryptedContent, iv]
+          'INSERT INTO messages (sender_id, receiver_id, encrypted_content, iv, status) VALUES (?, ?, ?, ?, ?)',
+          [currentUserId, targetId, encryptedContent, iv, initialStatus]
         );
 
         const messagePayload = {
@@ -93,24 +116,70 @@ module.exports = (io) => {
           receiver_id: targetId,
           encrypted_content: encryptedContent,
           iv: iv,
+          status: initialStatus,
+          read_at: null,
           is_deleted_for_everyone: 0,
           created_at: new Date()
         };
 
-        // Broadcast exclusively to participants inside the room
         io.to(roomId).emit('message:receive', messagePayload);
       } catch (err) {
         socket.emit('error', { message: 'Failed to persist message.' });
       }
     });
 
-    // WhatsApp-Style "Delete for Everyone"
+    // --- Delivery Receipt: Client Confirms Receipt (Double Grey) ---
+    socket.on('message:delivered', async ({ messageIds, senderId }) => {
+      if (!Array.isArray(messageIds) || messageIds.length === 0) return;
+
+      try {
+        const placeholders = messageIds.map(() => '?').join(',');
+        const query = `
+          UPDATE messages 
+          SET status = 'delivered' 
+          WHERE id IN (${placeholders}) AND receiver_id = ? AND status = 'sent'
+        `;
+        await pool.execute(query, [...messageIds, currentUserId]);
+
+        // Notify original sender
+        io.to(`user_${senderId}`).emit('message:delivered_receipt', {
+          messageIds,
+          deliveredTo: currentUserId
+        });
+      } catch (err) {
+        console.error('Error marking messages as delivered:', err);
+      }
+    });
+
+    // --- Read Receipt: Mark Messages as Read (Double Blue) ---
+    socket.on('message:read', async ({ messageIds, senderId }) => {
+      if (!Array.isArray(messageIds) || messageIds.length === 0) return;
+
+      try {
+        const placeholders = messageIds.map(() => '?').join(',');
+        const query = `
+          UPDATE messages 
+          SET status = 'read', read_at = NOW() 
+          WHERE id IN (${placeholders}) AND receiver_id = ? AND status != 'read'
+        `;
+        await pool.execute(query, [...messageIds, currentUserId]);
+
+        io.to(`user_${senderId}`).emit('message:read_receipt', {
+          messageIds,
+          readBy: currentUserId,
+          readAt: new Date()
+        });
+      } catch (err) {
+        console.error('Error marking messages as read:', err);
+      }
+    });
+
+    // --- Delete for Everyone ---
     socket.on('message:delete_everyone', async ({ messageId, targetUserId }) => {
       const msgId = Number(messageId);
       const roomId = getRoomId(currentUserId, targetUserId);
 
       try {
-        // Only author or admin can delete for everyone
         const [rows] = await pool.execute('SELECT sender_id FROM messages WHERE id = ?', [msgId]);
         if (rows.length === 0) return;
 
@@ -129,7 +198,7 @@ module.exports = (io) => {
       }
     });
 
-    // WhatsApp-Style "Delete for Me"
+    // --- Delete for Me ---
     socket.on('message:delete_me', async ({ messageId }) => {
       const msgId = Number(messageId);
 
@@ -139,14 +208,13 @@ module.exports = (io) => {
           [msgId, currentUserId]
         );
 
-        // Notify only the requesting client's socket
         socket.emit('message:deleted_me', { messageId: msgId });
       } catch (err) {
         socket.emit('error', { message: 'Failed to delete message for you.' });
       }
     });
 
-    // Typing Indicators
+    // --- Typing Indicators ---
     socket.on('typing:start', ({ targetUserId }) => {
       const roomId = getRoomId(currentUserId, targetUserId);
       socket.to(roomId).emit('typing:start', { userId: currentUserId });
@@ -157,8 +225,47 @@ module.exports = (io) => {
       socket.to(roomId).emit('typing:stop', { userId: currentUserId });
     });
 
-    socket.on('disconnect', () => {
-      // Socket automatically cleans up room subscriptions
+    // --- Disconnect & Cleanup ---
+    socket.on('disconnect', async () => {
+      const userSockets = activeConnections.get(currentUserId);
+      if (userSockets) {
+        userSockets.delete(socket.id);
+
+        if (userSockets.size === 0) {
+          activeConnections.delete(currentUserId);
+          const now = new Date();
+
+          try {
+            await pool.execute(
+              'UPDATE users SET is_online = 0, last_seen = ? WHERE id = ?',
+              [now, currentUserId]
+            );
+
+            // Renamed to user:status per spec
+            io.emit('user:status', {
+              userId: currentUserId,
+              is_online: 0,
+              last_seen: now
+            });
+          } catch (err) {
+            console.error('Error updating offline presence:', err);
+          }
+        }
+      }
     });
+
+    // ==========================================
+    // ASYNC PRESENCE RUNS IN BACKGROUND (NON-BLOCKING)
+    // ==========================================
+    if (activeConnections.get(currentUserId).size === 1) {
+      pool.execute('UPDATE users SET is_online = 1 WHERE id = ?', [currentUserId])
+        .then(() => {
+          // Renamed to user:status per spec
+          io.emit('user:status', { userId: currentUserId, is_online: 1, last_seen: null });
+        })
+        .catch((err) => {
+          console.error('Error updating online presence:', err);
+        });
+    }
   });
 };

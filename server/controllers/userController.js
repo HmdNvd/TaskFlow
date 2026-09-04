@@ -8,7 +8,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 exports.getUsers = async (req, res, next) => {
   try {
     const [users] = await pool.execute(
-      'SELECT id, name, email, role, created_at FROM users ORDER BY name ASC'
+      'SELECT id, name, email, role, is_online, last_seen, created_at FROM users ORDER BY name ASC'
     );
     return res.json({
       success: true,
@@ -167,7 +167,7 @@ exports.getUserById = async (req, res, next) => {
 
   try {
     const [users] = await pool.execute(
-      'SELECT id, name, email, role, created_at FROM users WHERE id = ?',
+      'SELECT id, name, email, role, is_online, last_seen, created_at FROM users WHERE id = ?',
       [targetUserId]
     );
 

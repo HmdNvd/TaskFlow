@@ -58,19 +58,19 @@ client2.on('connect', () => {
 
 // Message workflow
 client2.on('message:receive', (msg) => {
-  console.log('📩 Client 2 received message ID:', msg.id, 'Content:', msg.encrypted_content);
+  console.log(' Client 2 received message ID:', msg.id, 'Content:', msg.encrypted_content);
   console.log('\n--- Testing Delete for Everyone ---');
   client1.emit('message:delete_everyone', { messageId: msg.id, targetUserId: 2 });
 });
 
 client2.on('message:deleted_everyone', ({ messageId }) => {
-  console.log(`🗑️ Client 2 confirmed: Message ${messageId} deleted for everyone.`);
+  console.log(` Client 2 confirmed: Message ${messageId} deleted for everyone.`);
   console.log('\n--- Testing Delete for Me ---');
   client2.emit('message:delete_me', { messageId });
 });
 
 client2.on('message:deleted_me', ({ messageId }) => {
-  console.log(`👁️ Client 2 confirmed: Message ${messageId} hidden (Delete for Me).`);
+  console.log(` Client 2 confirmed: Message ${messageId} hidden (Delete for Me).`);
   console.log('\n🎉 ALL REAL-TIME SOCKET TESTS PASSED!');
   client1.disconnect();
   client2.disconnect();
