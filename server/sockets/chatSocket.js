@@ -9,6 +9,19 @@ const getRoomId = (user1, user2) => {
 };
 
 module.exports = (io) => {
+  // Keep read state server-side so unread counts survive page reloads.
+  const readStateReady = pool.query(`
+    CREATE TABLE IF NOT EXISTS message_user_reads (
+      message_id int(11) NOT NULL,
+      user_id int(11) NOT NULL,
+      PRIMARY KEY (message_id, user_id),
+      INDEX (user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=latin1
+  `).catch((err) => {
+    console.error('Failed to initialize message read state:', err.message);
+    throw err;
+  });
+
   // 1. WebSocket Authentication Middleware
   io.use((socket, next) => {
     const rawToken = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
@@ -35,12 +48,52 @@ module.exports = (io) => {
     // Join user's personal room for direct system notifications
     socket.join(`user_${currentUserId}`);
 
+    const sendUnreadCounts = async () => {
+      try {
+        await readStateReady;
+        const [rows] = await pool.execute(`
+          SELECT m.sender_id AS userId, COUNT(*) AS count
+          FROM messages m
+          LEFT JOIN message_user_deletions mud
+                 ON m.id = mud.message_id AND mud.user_id = ?
+          LEFT JOIN message_user_reads mur
+                 ON m.id = mur.message_id AND mur.user_id = ?
+          WHERE m.receiver_id = ?
+            AND mud.user_id IS NULL
+            AND mur.message_id IS NULL
+          GROUP BY m.sender_id
+        `, [currentUserId, currentUserId, currentUserId]);
+
+        socket.emit('chat:unread', rows.map((row) => ({
+          userId: Number(row.userId),
+          count: Number(row.count),
+        })));
+      } catch (err) {
+        socket.emit('chat:unread', []);
+      }
+    };
+
+    sendUnreadCounts();
+
     // Join a private 1-on-1 chat room with another user
     socket.on('chat:join', async ({ targetUserId }) => {
       if (!targetUserId) return;
 
       const roomId = getRoomId(currentUserId, targetUserId);
       socket.join(roomId);
+
+      try {
+        await readStateReady;
+        await pool.execute(`
+          INSERT IGNORE INTO message_user_reads (message_id, user_id)
+          SELECT m.id, ?
+          FROM messages m
+          WHERE m.sender_id = ? AND m.receiver_id = ?
+        `, [currentUserId, targetUserId, currentUserId]);
+        await sendUnreadCounts();
+      } catch (err) {
+        socket.emit('error', { message: 'Failed to update message read state.' });
+      }
 
       // Fetch chat history (excluding messages deleted for this user)
       try {
@@ -99,6 +152,10 @@ module.exports = (io) => {
 
         // Broadcast exclusively to participants inside the room
         io.to(roomId).emit('message:receive', messagePayload);
+
+        // Also notify the receiver's personal room so global UI notifications
+        // can detect messages even when the chat window is closed.
+        io.to(`user_${targetId}`).emit('message:receive', messagePayload);
       } catch (err) {
         socket.emit('error', { message: 'Failed to persist message.' });
       }

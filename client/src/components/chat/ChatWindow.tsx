@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
-import { getSocket, disconnectSocket } from '@/services/socket'
+import { getSocket } from '@/services/socket'
+import { setConversationOpen } from '@/services/chatNotifications'
 
 /**
  * Shape of a chat message exactly as emitted by the existing backend
@@ -79,6 +80,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     setErrorMessage(null)
     setMessages([])
     setOtherTyping(false)
+    setConversationOpen(targetUserId, true)
 
     const belongsToThisChat = (a: number, b: number) =>
       (a === currentUserId && b === targetUserId) ||
@@ -95,7 +97,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
     const handleReceive = (message: ChatMessage) => {
       if (!belongsToThisChat(message.sender_id, message.receiver_id)) return
-      setMessages((prev) => [...prev, message])
+      setMessages((prev) =>
+        prev.some((existing) => existing.id === message.id)
+          ? prev
+          : [...prev, message]
+      )
     }
 
     const handleDeletedEveryone = ({ messageId }: { messageId: number }) => {
@@ -160,7 +166,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
 
-      disconnectSocket()
+      setConversationOpen(targetUserId, false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, targetUserId, currentUserId])

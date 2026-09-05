@@ -1,11 +1,26 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { X } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { startChatNotifications, resetChatNotifications } from '@/services/chatNotifications'
+import { disconnectSocket } from '@/services/socket'
 
 export const AppLayout: React.FC = () => {
+  const { user } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+
+    const stop = startChatNotifications(Number(user.id))
+    return () => {
+      stop()
+      resetChatNotifications()
+      disconnectSocket()
+    }
+  }, [user])
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
