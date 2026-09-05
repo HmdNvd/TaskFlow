@@ -7,6 +7,7 @@ import {
   Edit2,
   Trash2,
   CheckCircle2,
+  MessageCircle,
 } from 'lucide-react'
 import {
   Dialog,
@@ -21,6 +22,7 @@ import { TaskStatusBadge } from '@/components/common/TaskStatusBadge'
 import { TaskPriorityBadge } from '@/components/common/TaskPriorityBadge'
 import { TaskDetailSkeleton } from '@/components/common/skeletons'
 import { ErrorState } from '@/components/common/ErrorState'
+import { ChatWindow } from '@/components/chat/ChatWindow'
 import { useAuth } from '@/context/AuthContext'
 import type { Task } from '@/types'
 
@@ -41,14 +43,42 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   isLoading = false,
   error = null,
 }) => {
-  const { isAdmin } = useAuth()
+  const { user, isAdmin } = useAuth()
   const canDelete = isAdmin && !!onDelete
+
+  const [chatOpen, setChatOpen] = React.useState(false)
+
+  // The chat is only offered between the task's Admin creator and the
+  // Member currently assigned to it — using existing task assignment data.
+  const currentUserId = user ? Number(user.id) : null
+  const assignedId = task?.assigned_to ? Number(task.assigned_to.id) : null
+  const creatorId = task?.created_by ? Number(task.created_by.id) : null
+
+  let chatTargetId: number | null = null
+  let chatTargetName: string | null = null
+
+  if (task && currentUserId != null) {
+    if (isAdmin && assignedId != null && assignedId !== currentUserId) {
+      chatTargetId = assignedId
+      chatTargetName = task.assigned_to!.name
+    } else if (
+      !isAdmin &&
+      assignedId != null &&
+      assignedId === currentUserId &&
+      creatorId != null &&
+      creatorId !== currentUserId
+    ) {
+      chatTargetId = creatorId
+      chatTargetName = task.created_by.name
+    }
+  }
 
   if (!open || (!task && !isLoading && !error)) return null
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-2xl">
+    <>
+      <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+        <DialogContent className="max-w-2xl">
         {isLoading ? (
           <>
             <DialogHeader className="sr-only">
@@ -108,6 +138,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               <p className="font-bold text-foreground text-sm">
                 {task.assigned_to ? task.assigned_to.name : 'Unassigned'}
               </p>
+              {chatTargetId != null && chatTargetName && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-1 h-7 gap-1.5 text-xs"
+                  onClick={() => setChatOpen(true)}
+                >
+                  <MessageCircle className="h-3 w-3" />
+                  Message {chatTargetName.split(' ')[0]}
+                </Button>
+              )}
             </div>
 
             <div className="rounded-xl border border-border/50 p-3.5 space-y-1 bg-card">
@@ -168,7 +210,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         </DialogFooter>
           </>
         ) : null}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {chatTargetId != null && chatTargetName && (
+        <ChatWindow
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+          targetUserId={chatTargetId}
+          targetUserName={chatTargetName}
+        />
+      )}
+    </>
   )
 }
